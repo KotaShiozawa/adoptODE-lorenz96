@@ -1,0 +1,24 @@
+Bootstrap: docker
+From: ubuntu:22.04
+IncludeCmd: yes
+
+%environment
+    export TZ=Europe/Berlin
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get -y update 
+    apt-get install -y --no-install-recommends python3-dev python3-wheel python3-pip python-is-python3 git
+    pip install --upgrade pip
+    pip install matplotlib numpy ipykernel jax[cpu] notebook
+
+    git clone https://gitlab.gwdg.de/sherzog3/adoptode.git; cd adoptode;  pip install .
+
+%runscript
+    python -c "import adoptODE; print(adoptODE.__name__, 'imported')"
+    
+%help
+    This container provides adoptODE
+
+%labels
+    AUTHOR sherzog3@gwdg.de
