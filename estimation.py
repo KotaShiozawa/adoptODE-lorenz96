@@ -78,7 +78,7 @@ kwargs_adoptODE = {"epochs": epochs, "lr": lr, "lr_y0": lr_y0}
 
 name = "every" + str(every)
 dir = os.path.join("results", name)
-os.makedirs(dir)
+os.makedirs(dir, exist_ok=True)
 
 
 estimated = np.zeros((D, N))
