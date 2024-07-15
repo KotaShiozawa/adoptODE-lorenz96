@@ -49,14 +49,14 @@ args = parser.parse_args()
 every = args.every
 
 
-max_loops = 200
+max_loops = 10
 total_loops = 1000
 trans = 3000
 D = 420
 N = 10000
 dt = 0.01
 p = 8.17
-threshold = 10**-2
+threshold = 1.0
 len_segs = 100
 iguess_range = [-1, 4]
 epochs = 3000
