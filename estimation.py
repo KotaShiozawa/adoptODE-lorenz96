@@ -49,7 +49,7 @@ args = parser.parse_args()
 every = args.every
 
 
-max_loops = 10
+max_loops = 1
 total_loops = 1000
 trans = 3000
 D = 420
