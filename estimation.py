@@ -1,14 +1,14 @@
-import os
 import copy
-import json
-import numpy as np
-import pandas as pd
+import os
+
+import jax
 import jax.numpy as jnp
-from jax import jit
-from jax import config
-from jax.flatten_util import ravel_pytree
-from adoptODE import train_adoptODE, simple_simulation
+import numpy as np
 import xarray as xr
+from jax import config, jit
+from jax.flatten_util import ravel_pytree
+
+from adoptODE import simple_simulation, train_adoptODE
 
 # config.update("jax_platform_name", "cpu")
 config.update("jax_platform_name", "gpu")
@@ -74,7 +74,11 @@ kwargs_sys = {"N_sys": 1, "vars": vars, "init": rng.random(D)}
 num_segs = int(N / len_segs)
 t_all = jnp.arange(0, (N + trans) * dt, dt)
 t_evals = jnp.arange(0, len_segs * dt, dt)
-kwargs_adoptODE = {"epochs": epochs, "lr": lr, "lr_y0": lr_y0}
+kwargs_adoptODE = {
+    "epochs": epochs,
+    "lr": lr,
+    "lr_y0": lr_y0,
+}
 
 
 name = "every" + str(every)
@@ -90,6 +94,17 @@ count = 0
 
 true = simple_simulation(lorenz96, t_all, kwargs_sys, kwargs_adoptODE, params={"p": p})
 true = np.array([true.ys[v][0][trans:] for v in vars])
+
+kwargs_adoptODE.update(
+    {
+        "upper_b": jax.tree_util.tree_map(
+            lambda x: jnp.max(x) + (jnp.max(x) - jnp.min(x)) / 10, true
+        ),
+        "lower_b": jax.tree_util.tree_map(
+            lambda x: jnp.min(x) - (jnp.max(x) - jnp.min(x)) / 10, true
+        ),
+    }
+)
 
 # get current time and date
 import datetime
