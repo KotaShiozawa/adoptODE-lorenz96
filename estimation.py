@@ -94,17 +94,19 @@ count = 0
 true = simple_simulation(lorenz96, t_all, kwargs_sys, kwargs_adoptODE, params={"p": p})
 true = np.array([true.ys[v][0][trans:] for v in vars])
 
-global_maximum = jax.tree_util.tree_map(jnp.max, true)
-global_minimum = jax.tree_util.tree_map(jnp.min, true)
+global_measured_maximum = jax.tree_util.tree_map(jnp.max, true[::every])
+global_measured_minimum = jax.tree_util.tree_map(jnp.min, true[::every])
 
 kwargs_adoptODE.update(
     {
-        "upper_b": global_maximum + (global_maximum - global_minimum) / 10,
-        "lower_b": global_minimum - (global_maximum - global_minimum) / 10,
+        "upper_b": global_measured_maximum
+        + (global_measured_maximum - global_measured_minimum) / 10,
+        "lower_b": global_measured_minimum
+        - (global_measured_maximum - global_measured_minimum) / 10,
     }
 )
 
-iguess_range = [global_minimum, global_maximum]
+iguess_range = [global_measured_minimum, global_measured_maximum]
 
 
 # get current time and date
