@@ -58,7 +58,6 @@ dt = 0.01
 p = 8.17
 threshold = 1.0
 len_segs = 100
-iguess_range = [-1, 4]
 epochs = 3000
 lr = 0
 lr_y0 = 0.01
@@ -95,16 +94,18 @@ count = 0
 true = simple_simulation(lorenz96, t_all, kwargs_sys, kwargs_adoptODE, params={"p": p})
 true = np.array([true.ys[v][0][trans:] for v in vars])
 
+global_maximum = jax.tree_util.tree_map(jnp.max, true)
+global_minimum = jax.tree_util.tree_map(jnp.min, true)
+
 kwargs_adoptODE.update(
     {
-        "upper_b": jax.tree_util.tree_map(
-            lambda x: jnp.max(x) + (jnp.max(x) - jnp.min(x)) / 10, true
-        ),
-        "lower_b": jax.tree_util.tree_map(
-            lambda x: jnp.min(x) - (jnp.max(x) - jnp.min(x)) / 10, true
-        ),
+        "upper_b": global_maximum + (global_maximum - global_minimum) / 10,
+        "lower_b": global_minimum - (global_maximum - global_minimum) / 10,
     }
 )
+
+iguess_range = [global_minimum, global_maximum]
+
 
 # get current time and date
 import datetime
