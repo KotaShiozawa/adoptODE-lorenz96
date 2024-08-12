@@ -96,8 +96,7 @@ true = np.array([true.ys[v][0][trans:] for v in vars])
 
 global_measured_maximum = jax.tree_util.tree_map(jnp.max, true[::every])
 global_measured_minimum = jax.tree_util.tree_map(jnp.min, true[::every])
-global_measured_mean = jax.tree_util.tree_map(jnp.mean, true[::every])
-global_measured_std = jax.tree_util.tree_map(jnp.std, true[::every])
+all_values = true[::every].flatten()
 
 kwargs_adoptODE.update(
     {
@@ -123,13 +122,11 @@ params["dt"] = dt
 params["p"] = p
 params["threshold"] = threshold
 params["len_segs"] = len_segs
-params["iguess_mean"] = global_measured_mean
-params["iguess_std"] = global_measured_std
 params["epochs"] = epochs
 params["lr"] = lr
 params["lr_y0"] = lr_y0
 params["seed"] = seed
-params["iguess_distribution"] = "Gaussian"
+params["iguess_distribution"] = "Measured"
 # params["vars"] = vars
 # params["vars_measured"] = vars_measured
 measured = [True if v in vars_measured else False for v in vars]
@@ -161,7 +158,7 @@ while i < num_segs and np.sum(counts) < total_loops:
         dataset.ys[v] = dataset.ys[v] * jnp.nan
         if init_guess == "rand":
             dataset.y0_train[v] = np.array(
-                [rng.normal(loc=global_measured_mean, scale=global_measured_std)]
+                [rng.choice(all_values)]
             )
         elif init_guess == "end":
             dataset.y0_train[v] = np.array([ys_sol[v][0, -1]])
