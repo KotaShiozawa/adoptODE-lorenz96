@@ -45,18 +45,28 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--every", type=int, default=1)
+parser.add_argument("--max_loops", type=int, default=1)
+parser.add_argument("--total_loops", type=int, default=1000)
+parser.add_argument("--threshold", type=float, default=1.0)
+parser.add_argument("--D", type=int, default=420)
+parser.add_argument("--iguess_distribution", type=str, default="Measured")
+parser.add_argument("--iguess_range_min", type=float, default=-1.0)
+parser.add_argument("--iguess_range_max", type=float, default=4.0)
 args = parser.parse_args()
 every = args.every
+max_loops = args.max_loops
+total_loops = args.total_loops
+threshold = args.threshold
+D = args.D
+iguess_distribution = args.iguess_distribution
+# we will ignore this if iguess_distribution is "Measured"
+iguess_range_min = args.iguess_range_min
+iguess_range_max = args.iguess_range_max
 
-
-max_loops = 1
-total_loops = 1000
 trans = 3000
-D = 420
 N = 10000
 dt = 0.01
 p = 8.17
-threshold = 1.0
 len_segs = 100
 epochs = 3000
 lr = 0
@@ -126,9 +136,8 @@ params["epochs"] = epochs
 params["lr"] = lr
 params["lr_y0"] = lr_y0
 params["seed"] = seed
-params["iguess_distribution"] = "Measured"
-# params["vars"] = vars
-# params["vars_measured"] = vars_measured
+params["iguess_distribution"] = iguess_distribution
+params["iguess_range"] = [iguess_range_min, iguess_range_max]
 measured = [True if v in vars_measured else False for v in vars]
 
 # format as YYYY-MM-DD_HH-MM-SS
@@ -138,7 +147,6 @@ measured_darray = xr.DataArray(
 )
 
 dset = xr.Dataset(attrs=params)
-print(dset)
 dset.to_netcdf(os.path.join(dir, f"{timestamp}_data.h5"), engine="h5netcdf")
 
 i = 0
@@ -157,9 +165,12 @@ while i < num_segs and np.sum(counts) < total_loops:
     for v in sorted(list(set(vars) - set(vars_measured))):
         dataset.ys[v] = dataset.ys[v] * jnp.nan
         if init_guess == "rand":
-            dataset.y0_train[v] = np.array(
-                [rng.choice(all_values)]
-            )
+            if iguess_distribution == "Measured":
+                dataset.y0_train[v] = np.array([rng.choice(all_values)])
+            elif iguess_distribution == "Range":
+                dataset.y0_train[v] = np.array(
+                    [rng.uniform(iguess_range_min, iguess_range_max)]
+                )
         elif init_guess == "end":
             dataset.y0_train[v] = np.array([ys_sol[v][0, -1]])
     _, losses, *_ = train_adoptODE(dataset, print_interval=100, save_interval=10)
