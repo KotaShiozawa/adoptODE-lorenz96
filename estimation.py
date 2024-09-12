@@ -233,12 +233,12 @@ while i < num_segs and np.sum(counts) < total_loops:
             attrs=params,
         )
         saved_dset = xr.open_dataset(
-            os.path.join(dir, f"{timestamp}_data.h5"), engine="h5netcdf"
+            os.path.join(dir, f"{timestamp}_{D}D_data.h5"), engine="h5netcdf"
         )
         merged_dset = xr.merge([saved_dset, dset])
         saved_dset.close()
         merged_dset.to_netcdf(
-            os.path.join(dir, f"{timestamp}_data.h5"), engine="h5netcdf"
+            os.path.join(dir, f"{timestamp}_{D}D_data.h5"), engine="h5netcdf"
         )
         print("Segment", i, "done")
         count = 0
