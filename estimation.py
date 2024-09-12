@@ -147,7 +147,7 @@ measured_darray = xr.DataArray(
 )
 
 dset = xr.Dataset(attrs=params)
-dset.to_netcdf(os.path.join(dir, f"{timestamp}_data.h5"), engine="h5netcdf")
+dset.to_netcdf(os.path.join(dir, f"{timestamp}_{D}D_data.h5"), engine="h5netcdf")
 
 i = 0
 init_guess = "rand"
