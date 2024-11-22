@@ -266,6 +266,6 @@ if __name__ == "__main__":
         if val is None:
             reconstruction.attrs[key] = ["None"]
     reconstruction.to_netcdf(
-        f"results/{timestamp}-D{args.D}-observe_every{args.observe_every}.h5",
+        f"results/{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{args.seed_system}.h5",
         engine="h5netcdf",
     )
