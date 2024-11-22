@@ -265,4 +265,7 @@ if __name__ == "__main__":
     for key, val in reconstruction.attrs.items():
         if val is None:
             reconstruction.attrs[key] = ["None"]
-    reconstruction.to_netcdf(f"results/{timestamp}_data.h5", engine="h5netcdf")
+    reconstruction.to_netcdf(
+        f"results/{timestamp}-D{args.D}-observe_every{args.observe_every}.h5",
+        engine="h5netcdf",
+    )
