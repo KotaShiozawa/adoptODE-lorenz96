@@ -218,7 +218,7 @@ if __name__ == "__main__":
         "D": args.D,
         "p": 8.17,
         "trans_steps": 1000,
-        "N_time_steps": args.N_time_steps,
+        "N_time_steps": int(args.N_time_steps),
         "dt": 0.01,
         "len_segs": 100,
         "observe_every": args.observe_every,
