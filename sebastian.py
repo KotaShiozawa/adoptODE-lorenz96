@@ -159,7 +159,7 @@ def training_loop(
                                 segment * 100 : (segment + 1) * 100
                             ],
                             "variable": np.arange(1, system_kwargs["D"] + 1),
-                            "segment": [segment],
+                            "segment": [segment+1],
                             "seed_system": [system_kwargs["seed_system"]],
                         },
                     ),
@@ -172,7 +172,7 @@ def training_loop(
                                 segment * 100 : (segment + 1) * 100
                             ],
                             "variable": np.arange(1, system_kwargs["D"] + 1),
-                            "segment": [segment],
+                            "segment": [segment+1],
                             "seed_system": [system_kwargs["seed_system"]],
                         },
                     ),
@@ -182,7 +182,7 @@ def training_loop(
                         coords={
                             "n_sys": np.arange(0, system_kwargs["N_sys"]),
                             "epoch": np.arange(0, 10 * len(losses), 10),
-                            "segment": [segment],
+                            "segment": [segment+1],
                             "seed_system": [system_kwargs["seed_system"]],
                         },
                     ),
@@ -209,6 +209,7 @@ if __name__ == "__main__":
     parser.add_argument("--D", type=int, default=120)
     parser.add_argument("--N_sys", type=int, default=100)
     parser.add_argument("--seed_system", type=int, default=42)
+    parser.add_argument("--N_time_steps", default=600)
 
     args = parser.parse_args()
 
@@ -217,7 +218,7 @@ if __name__ == "__main__":
         "D": args.D,
         "p": 8.17,
         "trans_steps": 1000,
-        "N_time_steps": 600,
+        "N_time_steps": parser.N_time_steps,
         "dt": 0.01,
         "len_segs": 100,
         "observe_every": args.observe_every,
