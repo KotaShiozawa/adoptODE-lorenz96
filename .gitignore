@@ -5,3 +5,4 @@
 *.err
 results/**
 cluster/**
+plots/**
