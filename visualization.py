@@ -159,7 +159,7 @@ def plot_results(joint_df, total_df, savename):
         palette="Set2",
     )
     ax1.set_yscale("log")
-    ax0.set_xlabel("Consecutive segments")
+    ax1.set_xlabel("Consecutive segments")
     ax1.set_ylabel(r"$\mathcal{O}(E)$")
 
     # Create custom legend handles with the new colors
