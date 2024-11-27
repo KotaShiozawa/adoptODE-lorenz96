@@ -15,9 +15,8 @@ from adoptODE import dataset_adoptODE, simple_simulation, train_adoptODE
 
 def define_system(**kwargs_sys):
     def gen_y0():
-        seed = kwargs_sys["seed_system"]
         ini_state = jax.random.uniform(
-            key=jax.random.key(seed),
+            key=jax.random.key(kwargs_sys["seed_system"]),
             shape=(kwargs_sys["D"],),
             dtype=jnp.float32,
             minval=-1,
@@ -122,6 +121,8 @@ def training_loop(
     xr_datasets = []
     for segment in range(num_segments):
 
+        print(f"Segment {segment+1}/{num_segments}")
+
         dataset_rec = gen_dataset(
             dataset_gt,
             system_kwargs,
@@ -130,15 +131,24 @@ def training_loop(
             num_segment=segment,
         )
 
-        _, losses, _, params_history = train_adoptODE(
+        params_final, losses, _, params_history = train_adoptODE(
             dataset_rec, save_interval=10, print_interval=100  # type: ignore
         )
         y0_hist = np.array([elem["y0"]["state"] for elem in params_history]).swapaxes(
             0, 1
         )
 
-        init_params = dataset_rec.ys_sol["state"][:, -1, :]  # type: ignore
         losses = np.array(losses)
+        reconstructed_dataset_sim = simple_simulation(
+            define_system,
+            np.array(
+                [*dataset_rec.t_evals, dataset_rec.t_evals[-1] + system_kwargs["dt"]]
+            ),
+            system_kwargs,
+            adoptODE_kwargs,
+            y0=params_final["y0"],
+        )
+        init_params = reconstructed_dataset_sim.ys["state"][:, -1, :]  # type: ignore
         xr_datasets.append(
             xr.Dataset(
                 {
@@ -164,7 +174,7 @@ def training_loop(
                         },
                     ),
                     "reconstruction": xr.DataArray(
-                        dataset_rec.ys_sol["state"][jnp.newaxis, ..., jnp.newaxis],  # type: ignore
+                        reconstructed_dataset_sim.ys["state"][jnp.newaxis, :, :-1, :, jnp.newaxis],  # type: ignore
                         dims=["seed_system", "n_sys", "time", "variable", "segment"],
                         coords={
                             "n_sys": np.arange(0, system_kwargs["N_sys"]),
@@ -212,6 +222,8 @@ if __name__ == "__main__":
     parser.add_argument("--N_time_steps", default=600)
 
     args = parser.parse_args()
+
+    print(f"seed_system = {args.seed_system}")
 
     kwargs_sys = {
         "N_sys": args.N_sys,
