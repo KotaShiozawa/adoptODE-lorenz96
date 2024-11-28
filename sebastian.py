@@ -231,7 +231,7 @@ if __name__ == "__main__":
         "p": 8.17,
         "trans_steps": 1000,
         "N_time_steps": int(args.N_time_steps),
-        "dt": 0.01,
+        "dt": 0.0065,
         "len_segs": 100,
         "observe_every": args.observe_every,
         "seed_system": args.seed_system,
