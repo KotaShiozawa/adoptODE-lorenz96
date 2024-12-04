@@ -52,18 +52,22 @@ def gen_dataset(
     params: np.ndarray,
     num_segment: int = 0,
 ):
-
-    mask = np.zeros(dataset_gt.ys["state"].shape, dtype=bool)
-    mask[..., :: system_kwargs["observe_every"]] = 1
-    mask_y0 = mask[:, 0, :]
-
     len_segs = system_kwargs["len_segs"]
     segment_evals = dataset_gt.t_evals[:len_segs]
-    ys = {"state": dataset_gt.ys["state"] * jnp.nan}
-    ys["state"][mask] = dataset_gt.ys["state"][mask]
-    ys["state"] = dataset_gt.ys["state"][
-        :, num_segment * len_segs : (num_segment + 1) * len_segs, :
-    ]
+
+    n_sys, _, D = dataset_gt.ys["state"].shape
+    mask = np.zeros(dataset_gt.ys["state"].shape, dtype=bool)
+    mask[
+        :,
+        num_segment * len_segs : (num_segment + 1) * len_segs,
+        :: system_kwargs["observe_every"],
+    ] = 1
+    mask_y0 = mask[:, 0, :]
+    mask_ys = np.zeros((n_sys, len_segs, D), dtype=bool)
+    mask_ys[:, :, :: system_kwargs["observe_every"]] = 1
+
+    ys = {"state": np.full((n_sys, len_segs, D), np.nan)}
+    ys["state"][mask_ys] = dataset_gt.ys["state"][mask]
 
     y0_train = {"state": dataset_gt.ys["state"][:, 0] * 0}
 
