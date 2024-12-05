@@ -1,5 +1,6 @@
 import argparse
 import copy
+import os
 from datetime import datetime
 
 import jax
@@ -103,7 +104,8 @@ def training_loop(
     dataset_gt,
     system_kwargs: dict,
     adoptODE_kwargs: dict,
-) -> xr.Dataset:
+    results_filename: str,
+) -> None:
 
     initialization_key = jax.random.key(system_kwargs["seed_optimization"])
 
@@ -122,7 +124,6 @@ def training_loop(
     )
 
     num_segments = system_kwargs["N_time_steps"] // system_kwargs["len_segs"]
-    xr_datasets = []
     for segment in range(num_segments):
 
         print(f"Segment {segment+1}/{num_segments}")
@@ -153,68 +154,69 @@ def training_loop(
             y0=params_final["y0"],
         )
         init_params = reconstructed_dataset_sim.ys["state"][:, -1, :]  # type: ignore
-        xr_datasets.append(
-            xr.Dataset(
-                {
-                    "ground_truth": xr.DataArray(
-                        dataset_gt.ys["state"][
-                            jnp.newaxis,
-                            :,
-                            segment
-                            * system_kwargs["len_segs"] : (segment + 1)
-                            * system_kwargs["len_segs"],
-                            ...,
-                            jnp.newaxis,
-                        ],
-                        dims=["seed_system", "n_sys", "time", "variable", "segment"],
-                        coords={
-                            "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                            "time": dataset_gt.t_evals[
-                                segment * 100 : (segment + 1) * 100
-                            ],
-                            "variable": np.arange(1, system_kwargs["D"] + 1),
-                            "segment": [segment + 1],
-                            "seed_system": [system_kwargs["seed_system"]],
-                        },
-                    ),
-                    "reconstruction": xr.DataArray(
-                        reconstructed_dataset_sim.ys["state"][jnp.newaxis, :, :-1, :, jnp.newaxis],  # type: ignore
-                        dims=["seed_system", "n_sys", "time", "variable", "segment"],
-                        coords={
-                            "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                            "time": dataset_gt.t_evals[
-                                segment * 100 : (segment + 1) * 100
-                            ],
-                            "variable": np.arange(1, system_kwargs["D"] + 1),
-                            "segment": [segment + 1],
-                            "seed_system": [system_kwargs["seed_system"]],
-                        },
-                    ),
-                    "losses": xr.DataArray(
-                        np.array(losses).T[jnp.newaxis, ..., jnp.newaxis],
-                        dims=["seed_system", "n_sys", "epoch", "segment"],
-                        coords={
-                            "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                            "epoch": np.arange(0, 10 * len(losses), 10),
-                            "segment": [segment + 1],
-                            "seed_system": [system_kwargs["seed_system"]],
-                        },
-                    ),
-                    "y0_history": xr.DataArray(
-                        y0_hist[jnp.newaxis, ...],
-                        dims=["seed_system", "n_sys", "epoch", "variable"],
-                        coords={
-                            "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                            "epoch": np.arange(0, 10 * len(losses), 10),
-                            "variable": np.arange(1, system_kwargs["D"] + 1),
-                            "seed_system": [system_kwargs["seed_system"]],
-                        },
-                    ),
-                },
-            )
+        iteration_result = xr.Dataset(
+            {
+                "ground_truth": xr.DataArray(
+                    dataset_gt.ys["state"][
+                        jnp.newaxis,
+                        :,
+                        segment
+                        * system_kwargs["len_segs"] : (segment + 1)
+                        * system_kwargs["len_segs"],
+                        ...,
+                        jnp.newaxis,
+                    ],
+                    dims=["seed_system", "n_sys", "time", "variable", "segment"],
+                    coords={
+                        "n_sys": np.arange(0, system_kwargs["N_sys"]),
+                        "time": dataset_gt.t_evals[segment * 100 : (segment + 1) * 100],
+                        "variable": np.arange(1, system_kwargs["D"] + 1),
+                        "segment": [segment + 1],
+                        "seed_system": [system_kwargs["seed_system"]],
+                    },
+                ),
+                "reconstruction": xr.DataArray(
+                    reconstructed_dataset_sim.ys["state"][jnp.newaxis, :, :-1, :, jnp.newaxis],  # type: ignore
+                    dims=["seed_system", "n_sys", "time", "variable", "segment"],
+                    coords={
+                        "n_sys": np.arange(0, system_kwargs["N_sys"]),
+                        "time": dataset_gt.t_evals[segment * 100 : (segment + 1) * 100],
+                        "variable": np.arange(1, system_kwargs["D"] + 1),
+                        "segment": [segment + 1],
+                        "seed_system": [system_kwargs["seed_system"]],
+                    },
+                ),
+                "losses": xr.DataArray(
+                    np.array(losses).T[jnp.newaxis, ..., jnp.newaxis],
+                    dims=["seed_system", "n_sys", "epoch", "segment"],
+                    coords={
+                        "n_sys": np.arange(0, system_kwargs["N_sys"]),
+                        "epoch": np.arange(0, 10 * len(losses), 10),
+                        "segment": [segment + 1],
+                        "seed_system": [system_kwargs["seed_system"]],
+                    },
+                ),
+                "y0_history": xr.DataArray(
+                    y0_hist[jnp.newaxis, ..., jnp.newaxis],
+                    dims=["seed_system", "n_sys", "epoch", "variable", "segment"],
+                    coords={
+                        "n_sys": np.arange(0, system_kwargs["N_sys"]),
+                        "epoch": np.arange(0, 10 * len(losses), 10),
+                        "variable": np.arange(1, system_kwargs["D"] + 1),
+                        "seed_system": [system_kwargs["seed_system"]],
+                        "segment": [segment + 1],
+                    },
+                ),
+            },
         )
-
-    return xr.concat(xr_datasets, dim="segment")
+        saved_dset = xr.open_dataset(
+            os.path.join("results/", results_filename), engine="h5netcdf"
+        )
+        merged_dset = xr.merge([saved_dset, iteration_result])
+        saved_dset.close()
+        merged_dset.to_netcdf(
+            os.path.join("results/", results_filename), engine="h5netcdf"
+        )
 
 
 if __name__ == "__main__":
@@ -224,6 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("--N_sys", type=int, default=100)
     parser.add_argument("--seed_system", type=int, default=42)
     parser.add_argument("--N_time_steps", default=600)
+    parser.add_argument("--dt", type=float, default=0.0065)
 
     args = parser.parse_args()
 
@@ -233,9 +236,9 @@ if __name__ == "__main__":
         "N_sys": args.N_sys,
         "D": args.D,
         "p": 8.17,
-        "trans_steps": 1000,
+        "trans_steps": 100000,
         "N_time_steps": int(args.N_time_steps),
-        "dt": 0.0065,
+        "dt": args.dt,
         "len_segs": 100,
         "observe_every": args.observe_every,
         "seed_system": args.seed_system,
@@ -278,16 +281,24 @@ if __name__ == "__main__":
     )
     # get current date and time in YYYY-MM-DD_HH-MM-SS format
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    reconstruction = training_loop(
-        dataset_ground_truth, kwargs_sys, adoptODE_kwargs=kwargs_adoptODE
-    )
-    reconstruction.attrs = {**kwargs_sys, **kwargs_adoptODE_to_save}
-    reconstruction.attrs["custom_scheduel_y0"] = "cosine_decay"
-
-    for key, val in reconstruction.attrs.items():
+    reconstruction_attrs = {**kwargs_sys, **kwargs_adoptODE_to_save}
+    reconstruction_attrs["custom_scheduel_y0"] = "cosine_decay"
+    for key, val in reconstruction_attrs.items():
         if val is None:
-            reconstruction.attrs[key] = ["None"]
-    reconstruction.to_netcdf(
-        f"results/{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{args.seed_system}.h5",
+            reconstruction_attrs[key] = ["None"]
+
+    dset = xr.Dataset(attrs=reconstruction_attrs)
+    savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{args.seed_system}.h5"
+    dset.to_netcdf(
+        os.path.join(
+            "results/",
+            savename,
+        ),
         engine="h5netcdf",
+    )
+    training_loop(
+        dataset_ground_truth,
+        kwargs_sys,
+        adoptODE_kwargs=kwargs_adoptODE,
+        results_filename=savename,
     )
