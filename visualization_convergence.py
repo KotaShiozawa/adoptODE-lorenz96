@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 from pathlib import Path
 from glob import glob
 
@@ -35,7 +36,6 @@ def hyperbolic_tan(x, a, b, c, d):
 def plot_convergence(
     e_true: xr.DataArray, threshold: float, savename: str, title: str = ""
 ):
-
     lower_threshold = 10 ** (np.log10(threshold) - 1)
     upper_threshold = 10 ** (np.log10(threshold) + 1)
     fig, ax = plt.subplots(figsize=(3.5, 2.5))
@@ -127,14 +127,16 @@ if __name__ == "__main__":
     mse_results = collect_results(args.filepath, args.dt)
     D = mse_results.attrs["D"]
 
+    now = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S")
+
     plot_convergence(
         mse_results.mse_true,
         args.threshold,
-        f"plots/convergence_observe_every{observation_fraction}-D{D}-dt{args.dt}-combined",
+        f"plots/{now}_convergence_observe_every{observation_fraction}-D{D}-dt{args.dt}-combined",
         title=f"D = {D}, every {observation_fraction}th variable observed",
     )
     plot_mse_time_resolved(
         mse_results.mse_true,
-        f"plots/mse_observe_every{observation_fraction}-D{D}-dt{args.dt}-combined",
+        f"plots/{now}_mse_observe_every{observation_fraction}-D{D}-dt{args.dt}-combined",
         title=f"D = {D}, every {observation_fraction}th variable observed",
     )
