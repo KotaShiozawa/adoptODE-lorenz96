@@ -36,17 +36,10 @@ def hyperbolic_tan(x, a, b, c, d):
 def plot_convergence(
     e_true: xr.DataArray, threshold: float, savename: str, title: str = ""
 ):
-    lower_threshold = 10 ** (np.log10(threshold) - 1)
-    upper_threshold = 10 ** (np.log10(threshold) + 1)
     fig, ax = plt.subplots(figsize=(3.5, 2.5))
-    mn = (e_true.mean(dim="time").mean(dim="seed_system") > threshold).sum(dim="n_sys")
-    lower = (e_true.mean(dim="time").mean(dim="seed_system") > lower_threshold).sum(
-        dim="n_sys"
+    (e_true.mean(dim="time") > threshold).sum(dim="n_sys").plot(
+        ax=ax, hue="seed_system", x="segment", color="grey", alpha=0.3
     )
-    upper = (e_true.mean(dim="time").mean(dim="seed_system") > upper_threshold).sum(
-        dim="n_sys"
-    )
-    ax.errorbar(e_true.segment, mn, yerr=[mn - lower, upper - mn], fmt="o", color="k")
 
     ax.set_ylabel(
         r"#unconverged trajectories ($E_{true} > 10^{%d}$)" % (np.log10(threshold))
@@ -93,19 +86,20 @@ def collect_results(filepath: str, dt: float) -> xr.Dataset:
 
     datasets = []
     for file in files:
+        print(f"file = {file}")
         dataset = xr.open_dataset(file)
         if dataset.attrs["dt"] != dt:
+            dataset.close()
             continue
 
+        print(f"n_sys = {dataset.n_sys.size}")
+
         observe_every = dataset.attrs["observe_every"]
-        seed_system = dataset.attrs["seed_system"]
 
         mse_true = calc_mse_true(dataset)
         mse_obs = calc_mse_obs(dataset, observe_every)
         datasets.append(
-            xr.Dataset({"mse_true": mse_true, "mse_obs": mse_obs}).expand_dims(
-                "seed_system", coords={"seed_system": [seed_system]}
-            )
+            xr.Dataset({"mse_true": mse_true, "mse_obs": mse_obs}, attrs=dataset.attrs)
         )
         dataset.close()
 
@@ -124,7 +118,7 @@ if __name__ == "__main__":
 
     filepath = f"{args.filepath}/2024-12*observe_every{observation_fraction}*.h5"
 
-    mse_results = collect_results(args.filepath, args.dt)
+    mse_results = collect_results(filepath, args.dt)
     D = mse_results.attrs["D"]
 
     now = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S")
