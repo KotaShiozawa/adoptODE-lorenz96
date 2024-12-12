@@ -117,11 +117,14 @@ if __name__ == "__main__":
     parser.add_argument("--filepath", type=str)
     parser.add_argument("--threshold", type=float, default=1e-5)
     parser.add_argument("--dt", type=float, default=0.01)
+    parser.add_argument("--observe_every", type=int, default=3)
 
     args = parser.parse_args()
+    observation_fraction = args.observe_every
+
+    filepath = f"{args.filepath}/2024-12*observe_every{observation_fraction}*.h5"
 
     mse_results = collect_results(args.filepath, args.dt)
-    observation_fraction = mse_results.attrs["observe_every"]
     D = mse_results.attrs["D"]
 
     plot_convergence(
