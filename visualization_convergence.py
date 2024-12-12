@@ -1,5 +1,5 @@
 import argparse
-from pathlib import Path
+from datetime import datetime
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -36,22 +36,22 @@ def plot_convergence(
     e_true: xr.DataArray, threshold: float, savename: str, title: str = ""
 ):
 
-    ydata = (e_true.mean(dim="time") > threshold).sum(dim="n_sys").values.flatten()
-    xdata = e_true.segment.values
+    # ydata = (e_true.mean(dim="time") > threshold).sum(dim="n_sys").values.flatten()
+    # xdata = e_true.segment.values
 
-    popt, pcov = curve_fit(hyperbolic_tan, xdata, ydata, p0=[100, -0.2, 10, 100])
+    # popt, pcov = curve_fit(hyperbolic_tan, xdata, ydata, p0=[100, -0.2, 10, 100])
 
     fig, ax = plt.subplots(figsize=(3.5, 2.5))
     (e_true.mean(dim="time") > threshold).sum(dim="n_sys").plot.scatter(
         ax=ax, x="segment", color="grey", marker="d"
     )
-    x = np.linspace(xdata.min(), xdata.max(), 100)
-    ax.plot(x, hyperbolic_tan(x, *popt), "r--", label=r"fit: $f(x)\sim \tanh(x)$")
+    # x = np.linspace(xdata.min(), xdata.max(), 100)
+    # ax.plot(x, hyperbolic_tan(x, *popt), "r--", label=r"fit: $f(x)\sim \tanh(x)$")
     ax.set_ylabel(
         r"#unconverged trajectories ($E_{true} > 10^{%d}$)" % (np.log10(threshold))
     )
     ax.set_xlabel("segment")
-    ax.legend(frameon=False)
+    # ax.legend(frameon=False)
     ax.set_title(title)
     fig.tight_layout()
     fig.savefig(f"{savename}.png", dpi=300)
@@ -94,14 +94,16 @@ if __name__ == "__main__":
     mse_true = calc_mse_true(dataset)
     dataset.close()
 
+    now = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S")
+
     plot_convergence(
         mse_true,
         args.threshold,
-        f"plots/convergence_observe_every{observe_every}-D{D}-seed_{seed_system}",
+        f"plots/{now}_convergence_observe_every{observe_every}-D{D}-seed_{seed_system}",
         title=f"D = {D}, every {observe_every}th variable observed",
     )
     plot_mse_time_resolved(
         mse_true,
-        f"plots/mse_observe_every{observe_every}-D{D}-seed_{seed_system}",
+        f"plots/{now}_mse_observe_every{observe_every}-D{D}-seed_{seed_system}",
         title=f"D = {D}, every {observe_every}th variable observed",
     )
