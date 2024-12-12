@@ -1,11 +1,12 @@
 import argparse
 from datetime import datetime
+from pathlib import Path
+from glob import glob
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from scipy.optimize import curve_fit
 
 matplotlib.rcParams["mathtext.fontset"] = "stix"
 matplotlib.rcParams["font.family"] = "STIXGeneral"
@@ -35,23 +36,22 @@ def hyperbolic_tan(x, a, b, c, d):
 def plot_convergence(
     e_true: xr.DataArray, threshold: float, savename: str, title: str = ""
 ):
-
-    # ydata = (e_true.mean(dim="time") > threshold).sum(dim="n_sys").values.flatten()
-    # xdata = e_true.segment.values
-
-    # popt, pcov = curve_fit(hyperbolic_tan, xdata, ydata, p0=[100, -0.2, 10, 100])
-
+    lower_threshold = 10 ** (np.log10(threshold) - 1)
+    upper_threshold = 10 ** (np.log10(threshold) + 1)
     fig, ax = plt.subplots(figsize=(3.5, 2.5))
-    (e_true.mean(dim="time") > threshold).sum(dim="n_sys").plot.scatter(
-        ax=ax, x="segment", color="grey", marker="d"
+    mn = (e_true.mean(dim="time").mean(dim="seed_system") > threshold).sum(dim="n_sys")
+    lower = (e_true.mean(dim="time").mean(dim="seed_system") > lower_threshold).sum(
+        dim="n_sys"
     )
-    # x = np.linspace(xdata.min(), xdata.max(), 100)
-    # ax.plot(x, hyperbolic_tan(x, *popt), "r--", label=r"fit: $f(x)\sim \tanh(x)$")
+    upper = (e_true.mean(dim="time").mean(dim="seed_system") > upper_threshold).sum(
+        dim="n_sys"
+    )
+    ax.errorbar(e_true.segment, mn, yerr=[mn - lower, upper - mn], fmt="o", color="k")
+
     ax.set_ylabel(
         r"#unconverged trajectories ($E_{true} > 10^{%d}$)" % (np.log10(threshold))
     )
     ax.set_xlabel("segment")
-    # ax.legend(frameon=False)
     ax.set_title(title)
     fig.tight_layout()
     fig.savefig(f"{savename}.png", dpi=300)
@@ -63,9 +63,9 @@ def plot_mse_time_resolved(
     fig, ax = plt.subplots(figsize=(3.5, 2.5))
 
     for segment in range(e_true.segment.size):
-        e_true.isel(segment=segment).plot(
+        e_true.isel(segment=segment).isel(seed_system=0).plot(
             ax=ax, hue="n_sys", x="time", add_legend=False, color="grey", alpha=0.3
-        )
+        )  # type: ignore
 
     ax.set_yscale("log")
     ax.set_ylabel("true mean squared error")
@@ -78,32 +78,62 @@ def calc_mse_true(data: xr.Dataset) -> xr.DataArray:
     return ((data.reconstruction - data.ground_truth) ** 2).mean(dim="variable")
 
 
+def calc_mse_obs(data: xr.Dataset, observe_every: int) -> xr.DataArray:
+    return (
+        (
+            data.reconstruction.isel(variable=slice(0, -1, observe_every))
+            - data.ground_truth.isel(variable=slice(0, -1, observe_every))
+        )
+        ** 2
+    ).mean(dim="variable")
+
+
+def collect_results(filepath: str, dt: float) -> xr.Dataset:
+    files = glob(filepath)
+
+    datasets = []
+    for file in files:
+        dataset = xr.open_dataset(file)
+        if dataset.attrs["dt"] != dt:
+            continue
+
+        observe_every = dataset.attrs["observe_every"]
+        seed_system = dataset.attrs["seed_system"]
+
+        mse_true = calc_mse_true(dataset)
+        mse_obs = calc_mse_obs(dataset, observe_every)
+        datasets.append(
+            xr.Dataset({"mse_true": mse_true, "mse_obs": mse_obs}).expand_dims(
+                "seed_system", coords={"seed_system": [seed_system]}
+            )
+        )
+        dataset.close()
+
+    return xr.concat(datasets, dim="seed_system")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--filepath", type=str)
     parser.add_argument("--threshold", type=float, default=1e-5)
+    parser.add_argument("--dt", type=float, default=0.01)
 
     args = parser.parse_args()
 
-    dataset = xr.open_dataset(args.filepath)
-
-    observe_every = dataset.attrs["observe_every"]
-    D = dataset.attrs["D"]
-    seed_system = dataset.attrs["seed_system"]
-
-    mse_true = calc_mse_true(dataset)
-    dataset.close()
+    mse_results = collect_results(args.filepath, args.dt)
+    observation_fraction = mse_results.attrs["observe_every"]
+    D = mse_results.attrs["D"]
 
     now = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M-%S")
 
     plot_convergence(
-        mse_true,
+        mse_results.mse_true,
         args.threshold,
-        f"plots/{now}_convergence_observe_every{observe_every}-D{D}-seed_{seed_system}",
-        title=f"D = {D}, every {observe_every}th variable observed",
+        f"plots/{now}_convergence_observe_every{observation_fraction}-D{D}-dt{args.dt}-combined",
+        title=f"D = {D}, every {observation_fraction}th variable observed",
     )
     plot_mse_time_resolved(
-        mse_true,
-        f"plots/{now}_mse_observe_every{observe_every}-D{D}-seed_{seed_system}",
-        title=f"D = {D}, every {observe_every}th variable observed",
+        mse_results.mse_true,
+        f"plots/{now}_mse_observe_every{observation_fraction}-D{D}-dt{args.dt}-combined",
+        title=f"D = {D}, every {observation_fraction}th variable observed",
     )
