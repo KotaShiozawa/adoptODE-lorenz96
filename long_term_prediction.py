@@ -55,36 +55,43 @@ def prediction_loop(
 
     for file in glob(load_regex):
 
-        dset = xr.open_dataset(file)
-        if "initialization" in dset.attrs.keys(): continue
+        dataset = xr.open_dataset(file)
+        if "initialization" in dataset.attrs.keys():
+            continue
 
-        last_ic = dset.reconstruction.isel(
-            segment=-1, seed_system=0, time=(dset.segment.size-1) * 100
+        seed_system = dataset.attrs["seed_system"]
+
+        last_ic = dataset.reconstruction.isel(
+            segment=-1, seed_system=0, time=(dataset.segment.size - 1) * 100
         )
-    
+
         prediction = simple_simulation(
             define_system,
             np.arange(
-                dset.time[(dset.segment.size-1)*100], dset.time[(dset.segment.size-1)*100] + 6.5, step=dset.attrs["dt"]
+                dataset.time[(dataset.segment.size - 1) * 100],
+                dataset.time[(dataset.segment.size - 1) * 100] + 6.5,
+                step=dataset.attrs["dt"],
             ),
             system_kwargs,
             adoptODE_kwargs,
             y0={"state": last_ic.values},
         )
 
-        last_ic_true = dset.ground_truth.isel(
-            segment=-1, seed_system=0, time=(dset.segment.size-1) * 100
+        last_ic_true = dataset.ground_truth.isel(
+            segment=-1, seed_system=0, time=(dataset.segment.size - 1) * 100
         )
         truth = simple_simulation(
             define_system,
             np.arange(
-                dset.time[(dset.segment.size-1)*100], dset.time[(dset.segment.size-1)*100] + 6.5, step=dset.attrs["dt"]
+                dataset.time[(dataset.segment.size - 1) * 100],
+                dataset.time[(dataset.segment.size - 1) * 100] + 6.5,
+                step=dataset.attrs["dt"],
             ),
             system_kwargs,
             adoptODE_kwargs,
             y0={"state": last_ic_true.values},
         )
-        dset.close()
+        dataset.close()
         iteration_result = xr.Dataset(
             {
                 "ground_truth": xr.DataArray(
@@ -97,17 +104,17 @@ def prediction_loop(
                         "n_sys": np.arange(0, system_kwargs["N_sys"]),
                         "time": truth.t_evals,
                         "variable": np.arange(1, system_kwargs["D"] + 1),
-                        "seed_system": [system_kwargs["seed_system"]],
+                        "seed_system": [seed_system],
                     },
                 ),
                 "reconstruction": xr.DataArray(
-                    reconstructed_dataset_sim.ys["state"][jnp.newaxis, ...],  # type: ignore
+                    prediction.ys["state"][jnp.newaxis, ...],  # type: ignore
                     dims=["seed_system", "n_sys", "time", "variable"],
                     coords={
                         "n_sys": np.arange(0, system_kwargs["N_sys"]),
                         "time": prediction.t_evals,
                         "variable": np.arange(1, system_kwargs["D"] + 1),
-                        "seed_system": [system_kwargs["seed_system"]],
+                        "seed_system": [seed_system],
                     },
                 ),
             },
@@ -127,7 +134,6 @@ if __name__ == "__main__":
     parser.add_argument("--observe_every", type=int, default=1)
     parser.add_argument("--D", type=int, default=120)
     parser.add_argument("--N_sys", type=int, default=100)
-    parser.add_argument("--seed_system", type=int, default=42)
     parser.add_argument("--N_time_steps", default=600)
     parser.add_argument("--dt", type=float, default=0.0065)
     parser.add_argument("--initialization", type=str, default="observed_dist")
@@ -143,7 +149,6 @@ if __name__ == "__main__":
         "dt": args.dt,
         "len_segs": 100,
         "observe_every": args.observe_every,
-        "seed_system": args.seed_system,
     }
 
     kwargs_adoptODE = {
@@ -160,7 +165,9 @@ if __name__ == "__main__":
 
     dset = xr.Dataset(attrs=reconstruction_attrs)
     savename = f"{timestamp}-long_term_prediction_D{args.D}-observe_every{args.observe_every}.h5"
-    load_regex = f"results/*-D{args.D}-observe_every{args.observe_every}-seed_system*.h5"
+    load_regex = (
+        f"results/*-D{args.D}-observe_every{args.observe_every}-seed_system*.h5"
+    )
     dset.to_netcdf(
         os.path.join(
             "results/",
@@ -172,5 +179,5 @@ if __name__ == "__main__":
         kwargs_sys,
         adoptODE_kwargs=kwargs_adoptODE,
         results_filename=savename,
-        load_regex=load_regex
+        load_regex=load_regex,
     )
