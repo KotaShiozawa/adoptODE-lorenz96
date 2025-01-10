@@ -38,7 +38,7 @@ def plot_convergence(
 ):
     fig, ax = plt.subplots(figsize=(3.5, 2.5))
     (e_true.mean(dim="time") > threshold).sum(dim="n_sys").plot(
-        ax=ax, hue="seed_system", x="segment", color="grey", alpha=0.3
+        ax=ax, hue="seed_system", x="segment", color="grey", alpha=0.3, add_legend=False
     )
 
     ax.set_ylabel(
@@ -56,9 +56,10 @@ def plot_mse_time_resolved(
     fig, ax = plt.subplots(figsize=(3.5, 2.5))
 
     for segment in range(e_true.segment.size):
-        e_true.isel(segment=segment).isel(seed_system=0).plot(
-            ax=ax, hue="n_sys", x="time", add_legend=False, color="grey", alpha=0.3
-        )  # type: ignore
+        for seed_system in range(e_true.seed_system.size):
+            e_true.isel(segment=segment).isel(seed_system=seed_system).plot(
+                ax=ax, hue="n_sys", x="time", add_legend=False, color="grey", alpha=0.3
+            )  # type: ignore
 
     ax.set_yscale("log")
     ax.set_ylabel("true mean squared error")
