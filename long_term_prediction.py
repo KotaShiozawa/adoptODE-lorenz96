@@ -58,6 +58,12 @@ def prediction_loop(
         dataset = xr.open_dataset(file)
         if "initialization" in dataset.attrs.keys():
             continue
+        if dataset.attrs["N_sys"] != 100: 
+            continue
+        if dataset.attrs["dt"] != system_kwargs["dt"]:
+            continue
+
+        print(f'processing file {file}')
 
         seed_system = dataset.attrs["seed_system"]
 
