@@ -49,9 +49,11 @@ parser.add_argument("--max_loops", type=int, default=1)
 parser.add_argument("--total_loops", type=int, default=1000)
 parser.add_argument("--threshold", type=float, default=1.0)
 parser.add_argument("--D", type=int, default=420)
+parser.add_argument("--N", type=int, default=10000)
 parser.add_argument("--iguess_distribution", type=str, default="Measured")
 parser.add_argument("--iguess_range_min", type=float, default=-1.0)
 parser.add_argument("--iguess_range_max", type=float, default=4.0)
+parser.add_argument("--seed", type=int, default=0)
 args = parser.parse_args()
 every = args.every
 max_loops = args.max_loops
@@ -62,22 +64,21 @@ iguess_distribution = args.iguess_distribution
 # we will ignore this if iguess_distribution is "Measured"
 iguess_range_min = args.iguess_range_min
 iguess_range_max = args.iguess_range_max
+N = args.N
+seed = args.seed
 
 trans = 3000
-N = 10000
 dt = 0.01
 p = 8.17
 len_segs = 100
 epochs = 3000
 lr = 0
 lr_y0 = 0.01
-seed = 0
 
 rng = np.random.default_rng(seed=seed)
 vars = ["x" + str(i + 1).zfill(3) for i in range(D)]
 vars_measured = ["x" + str(i + 1).zfill(3) for i in range(D) if i % every == 0]
 kwargs_sys = {"N_sys": 1, "vars": vars, "init": rng.random(D)}
-
 
 # Setting up system and training properties
 num_segs = int(N / len_segs)
@@ -147,8 +148,11 @@ measured_darray = xr.DataArray(
 )
 
 dset = xr.Dataset(attrs=params)
-dset.to_netcdf(os.path.join(dir, f"{timestamp}_{D}D_data.h5"), engine="h5netcdf")
+dset.to_netcdf(os.path.join(dir, f"{timestamp}_{D}D_data_random_ic.h5"), engine="h5netcdf")
 
+iguess_seed = np.random.randint(low=0, high=np.iinfo(np.int32).max)
+iguess_rng = np.random.default_rng(seed=iguess_seed)
+params["iguess_seed"] = iguess_seed
 i = 0
 init_guess = "rand"
 while i < num_segs and np.sum(counts) < total_loops:
@@ -166,10 +170,10 @@ while i < num_segs and np.sum(counts) < total_loops:
         dataset.ys[v] = dataset.ys[v] * jnp.nan
         if init_guess == "rand":
             if iguess_distribution == "Measured":
-                dataset.y0_train[v] = np.array([rng.choice(all_values)])
+                dataset.y0_train[v] = np.array([iguess_rng.choice(all_values)])
             elif iguess_distribution == "Range":
                 dataset.y0_train[v] = np.array(
-                    [rng.uniform(iguess_range_min, iguess_range_max)]
+                    [iguess_rng.uniform(iguess_range_min, iguess_range_max)]
                 )
         elif init_guess == "end":
             dataset.y0_train[v] = np.array([ys_sol[v][0, -1]])
@@ -233,12 +237,12 @@ while i < num_segs and np.sum(counts) < total_loops:
             attrs=params,
         )
         saved_dset = xr.open_dataset(
-            os.path.join(dir, f"{timestamp}_{D}D_data.h5"), engine="h5netcdf"
+            os.path.join(dir, f"{timestamp}_{D}D_data_random_ic.h5"), engine="h5netcdf"
         )
         merged_dset = xr.merge([saved_dset, dset])
         saved_dset.close()
         merged_dset.to_netcdf(
-            os.path.join(dir, f"{timestamp}_{D}D_data.h5"), engine="h5netcdf"
+            os.path.join(dir, f"{timestamp}_{D}D_data_random_ic.h5"), engine="h5netcdf"
         )
         print("Segment", i, "done")
         count = 0
