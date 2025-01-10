@@ -53,6 +53,8 @@ def gen_dataset(
     params: np.ndarray,
     num_segment: int = 0,
 ):
+    # the mask and segment stuff is because we are splitting the time series into segments
+    # and obscuring some of the variables
     len_segs = system_kwargs["len_segs"]
     segment_evals = dataset_gt.t_evals[:len_segs]
 
@@ -87,6 +89,7 @@ def gen_dataset(
     y0_upper_bound = jnp.full(y0_train["state"].shape, jnp.inf)
     y0_upper_bound = y0_upper_bound.at[mask_y0].set(y0_train["state"][mask_y0])
 
+    # THIS is relevant for you
     adoptODE_kwargs["lower_b_y0"] = {"state": y0_lower_bound}
     adoptODE_kwargs["upper_b_y0"] = {"state": y0_upper_bound}
 
@@ -96,7 +99,7 @@ def gen_dataset(
         segment_evals,
         system_kwargs,
         adoptODE_kwargs,
-        y0_train=y0_train,
+        y0_train=y0_train,  # and this keyword argument
     )
 
 
@@ -107,6 +110,7 @@ def training_loop(
     results_filename: str,
     initialization: str,
 ) -> None:
+    """not really relevant for you, just does the training iteratively for different segments"""
 
     initialization_key = jax.random.key(system_kwargs["seed_optimization"])
 
@@ -267,7 +271,7 @@ if __name__ == "__main__":
         "lr": 0.05,
         "epochs": 3000,
         "lr_y0": 0.05,
-        "custom_scheduel_y0": optax.cosine_decay_schedule(
+        "custom_scheduel_y0": optax.cosine_decay_schedule(  # might be interesting, different lr scheduling (but shouldn't have major impact)
             0.05, 3000, alpha=1e-3, exponent=1.0
         ),
     }
