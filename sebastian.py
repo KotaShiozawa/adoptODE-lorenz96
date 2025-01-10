@@ -254,6 +254,7 @@ if __name__ == "__main__":
         "len_segs": 100,
         "observe_every": args.observe_every,
         "seed_system": args.seed_system,
+        "initialization": args.initialization,
     }
 
     t_evals = jnp.arange(
