@@ -108,6 +108,7 @@ def training_loop(
     system_kwargs: dict,
     adoptODE_kwargs: dict,
     results_filename: str,
+    initialization: str,
 ) -> None:
     """not really relevant for you, just does the training iteratively for different segments"""
 
@@ -117,11 +118,21 @@ def training_loop(
         ..., :: system_kwargs["observe_every"]
     ].flatten()
 
-    init_params = np.array(
-        jax.random.choice(
-            initialization_key, all_values, shape=dataset_gt.y0_train["state"].shape
+    init_params = None
+    if initialization == "observed_dist":
+        init_params = np.array(
+            jax.random.choice(
+                initialization_key, all_values, shape=dataset_gt.y0_train["state"].shape
+            )
         )
-    )
+    elif initialization == "uniform-1_4":
+        init_params = np.array(
+            jax.random.uniform(
+                key=initialization_key, minval=-1, maxval=4, shape=dataset_gt.y0_train["state"].shape
+            )
+        )
+    else: 
+        raise ValueError(f'`initialization` can only be "observed_dist" or "uniform-1_4", but is {initialization}')
 
     init_params = np.delete(
         init_params, np.s_[:: system_kwargs["observe_every"]], axis=-1
@@ -231,6 +242,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed_system", type=int, default=42)
     parser.add_argument("--N_time_steps", default=600)
     parser.add_argument("--dt", type=float, default=0.0065)
+    parser.add_argument("--initialization", type=str, default="observed_dist")
 
     args = parser.parse_args()
 
@@ -305,4 +317,5 @@ if __name__ == "__main__":
         kwargs_sys,
         adoptODE_kwargs=kwargs_adoptODE,
         results_filename=savename,
+        initialization=args.initialization,
     )
