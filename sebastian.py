@@ -131,7 +131,7 @@ def training_loop(
                 key=initialization_key, minval=-1, maxval=4, shape=dataset_gt.y0_train["state"].shape
             )
         )
-    else: 
+    else:
         raise ValueError(f'`initialization` can only be "observed_dist" or "uniform-1_4", but is {initialization}')
 
     init_params = np.delete(
@@ -184,7 +184,7 @@ def training_loop(
                     dims=["seed_system", "n_sys", "time", "variable", "segment"],
                     coords={
                         "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                        "time": dataset_gt.t_evals[segment * 100 : (segment + 1) * 100],
+                        "time": dataset_gt.t_evals[segment * system_kwargs["len_segs"] : (segment + 1) * system_kwargs["len_segs"]],
                         "variable": np.arange(1, system_kwargs["D"] + 1),
                         "segment": [segment + 1],
                         "seed_system": [system_kwargs["seed_system"]],
@@ -195,7 +195,7 @@ def training_loop(
                     dims=["seed_system", "n_sys", "time", "variable", "segment"],
                     coords={
                         "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                        "time": dataset_gt.t_evals[segment * 100 : (segment + 1) * 100],
+                        "time": dataset_gt.t_evals[segment * system_kwargs["len_segs"] : (segment + 1) * system_kwargs["len_segs"]],
                         "variable": np.arange(1, system_kwargs["D"] + 1),
                         "segment": [segment + 1],
                         "seed_system": [system_kwargs["seed_system"]],
@@ -243,6 +243,7 @@ if __name__ == "__main__":
     parser.add_argument("--N_time_steps", default=600)
     parser.add_argument("--dt", type=float, default=0.0065)
     parser.add_argument("--initialization", type=str, default="observed_dist")
+    parser.add_argument("--len_segs", type=int, default=100)
 
     args = parser.parse_args()
 
@@ -255,7 +256,7 @@ if __name__ == "__main__":
         "trans_steps": 10000,
         "N_time_steps": int(args.N_time_steps),
         "dt": args.dt,
-        "len_segs": 100,
+        "len_segs": args.len_segs,
         "observe_every": args.observe_every,
         "seed_system": args.seed_system,
         "initialization": args.initialization,
