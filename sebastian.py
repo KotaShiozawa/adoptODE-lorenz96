@@ -205,17 +205,20 @@ def training_loop(
                 "ground_truth": xr.DataArray(
                     dataset_gt.ys["state"][
                         jnp.newaxis,
-                        :,
+                        0,
                         segment
                         * system_kwargs["len_segs"] : (segment + 1)
                         * system_kwargs["len_segs"],
                         ...,
                         jnp.newaxis,
                     ],
-                    dims=["seed_system", "n_sys", "time", "variable", "segment"],
+                    dims=["seed_system", "time", "variable", "segment"],
                     coords={
-                        "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                        "time": dataset_gt.t_evals[segment * system_kwargs["len_segs"] : (segment + 1) * system_kwargs["len_segs"]],
+                        "time": dataset_gt.t_evals[
+                            segment
+                            * system_kwargs["len_segs"] : (segment + 1)
+                            * system_kwargs["len_segs"]
+                        ],
                         "variable": np.arange(1, system_kwargs["D"] + 1),
                         "segment": [segment + 1],
                         "seed_system": [system_kwargs["seed_system"]],
@@ -226,7 +229,11 @@ def training_loop(
                     dims=["seed_system", "n_sys", "time", "variable", "segment"],
                     coords={
                         "n_sys": np.arange(0, system_kwargs["N_sys"]),
-                        "time": dataset_gt.t_evals[segment * system_kwargs["len_segs"] : (segment + 1) * system_kwargs["len_segs"]],
+                        "time": dataset_gt.t_evals[
+                            segment
+                            * system_kwargs["len_segs"] : (segment + 1)
+                            * system_kwargs["len_segs"]
+                        ],
                         "variable": np.arange(1, system_kwargs["D"] + 1),
                         "segment": [segment + 1],
                         "seed_system": [system_kwargs["seed_system"]],
