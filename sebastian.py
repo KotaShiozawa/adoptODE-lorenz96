@@ -157,7 +157,9 @@ def training_loop(
             )
         )
     else:
-        raise ValueError(f'`initialization` can only be "observed_dist" or "uniform-1_4", but is {initialization}')
+        raise ValueError(
+            f'`initialization` can only be "observed_dist", "quartiles_uniform", "quartiles_observed",  or "uniform-1_4", but is {initialization}'
+        )
 
     init_params = np.delete(
         init_params, np.s_[:: system_kwargs["observe_every"]], axis=-1
