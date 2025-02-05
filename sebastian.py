@@ -164,8 +164,12 @@ def training_loop(
     init_params = np.delete(
         init_params, np.s_[:: system_kwargs["observe_every"]], axis=-1
     )
-
-    num_segments = system_kwargs["N_time_steps"] // system_kwargs["len_segs"]
+    max_step = (
+        system_kwargs["N_time_steps"]
+        if not system_kwargs["cut_off"]
+        else system_kwargs["len_segs"]
+    )
+    num_segments = max_step // system_kwargs["len_segs"]
     for segment in range(num_segments):
 
         print(f"Segment {segment+1}/{num_segments}")
@@ -271,6 +275,7 @@ if __name__ == "__main__":
     parser.add_argument("--dt", type=float, default=0.0065)
     parser.add_argument("--initialization", type=str, default="observed_dist")
     parser.add_argument("--len_segs", type=int, default=100)
+    parser.add_argument("--cut_off", type=bool, default=False)
 
     args = parser.parse_args()
 
@@ -287,6 +292,7 @@ if __name__ == "__main__":
         "observe_every": args.observe_every,
         "seed_system": args.seed_system,
         "initialization": args.initialization,
+        "cut_off": int(args.cut_off),
     }
 
     t_evals = jnp.arange(
@@ -333,7 +339,7 @@ if __name__ == "__main__":
             reconstruction_attrs[key] = ["None"]
 
     dset = xr.Dataset(attrs=reconstruction_attrs)
-    savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{args.seed_system}.h5"
+    savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{args.seed_system}-{args.initialization}.h5"
     dset.to_netcdf(
         os.path.join(
             "results/",
@@ -341,6 +347,7 @@ if __name__ == "__main__":
         ),
         engine="h5netcdf",
     )
+
     training_loop(
         dataset_ground_truth,
         kwargs_sys,
