@@ -128,7 +128,32 @@ def training_loop(
     elif initialization == "uniform-1_4":
         init_params = np.array(
             jax.random.uniform(
-                key=initialization_key, minval=-1, maxval=4, shape=dataset_gt.y0_train["state"].shape
+                key=initialization_key,
+                minval=-1,
+                maxval=4,
+                shape=dataset_gt.y0_train["state"].shape,
+            )
+        )
+    elif initialization == "quartiles_uniform":
+        quartiles = np.nanquantile(all_values, [0.25, 0.75])
+        init_params = np.array(
+            jax.random.uniform(
+                key=initialization_key,
+                minval=quartiles[0],
+                maxval=quartiles[1],
+                shape=dataset_gt.y0_train["state"].shape,
+            )
+        )
+    elif initialization == "quartiles_observed":
+        quartiles = np.nanquantile(all_values, [0.25, 0.75])
+        observed_in_quartiles = all_values[
+            (all_values >= quartiles[0]) & (all_values <= quartiles[1])
+        ]
+        init_params = np.array(
+            jax.random.choice(
+                initialization_key,
+                observed_in_quartiles,
+                shape=dataset_gt.y0_train["state"].shape,
             )
         )
     else:
