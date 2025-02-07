@@ -310,10 +310,10 @@ if __name__ == "__main__":
 
     kwargs_adoptODE = {
         "lr": 0.05,
-        "epochs": 3000,
+        "epochs": 1500,
         "lr_y0": 0.05,
         "custom_scheduel_y0": optax.cosine_decay_schedule(  # might be interesting, different lr scheduling (but shouldn't have major impact)
-            0.05, 3000, alpha=1e-3, exponent=1.0
+            0.05, 1500, alpha=1e-3, exponent=1.0
         ),
     }
 
@@ -337,6 +337,7 @@ if __name__ == "__main__":
     dataset_ground_truth.t_evals = jnp.arange(
         0, (kwargs_sys["N_time_steps"]) * kwargs_sys["dt"], kwargs_sys["dt"]
     )
+
     # get current date and time in YYYY-MM-DD_HH-MM-SS format
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     reconstruction_attrs = {**kwargs_sys, **kwargs_adoptODE_to_save}
