@@ -2,46 +2,25 @@ from glob import glob
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
+
 import pandas as pd
 import seaborn as sns
 import xarray as xr
-from matplotlib.lines import Line2D
-from scipy.optimize import curve_fit
 
-matplotlib.rcParams["mathtext.fontset"] = "stix"
-matplotlib.rcParams["font.family"] = "STIXGeneral"
-
-# Set the font size parameters
-plt.rcParams.update(
-    {
-        "font.size": 9,
-        "axes.titlesize": 9,
-        "axes.labelsize": 9,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "figure.titlesize": 9,
-    }
-)
+plt.style.use("paper_2col.mplstyle")
 
 
 def collect_files(observe_every: int, len_segs: int, dt: float = 0.01):
     joints = []
-    for file in glob(f"results/202*every{observe_every}*.h5"):
+    for file in glob(f"../data/01_simulations/202*every{observe_every}*.h5"):
         if "long_term_prediction" in file:
             continue
         data = xr.open_dataset(file)
         if (
             len(data.data_vars) == 0
-            or "initialization" not in data.attrs.keys()
-            or (
-                "initialization" in data.attrs.keys()
-                and data.attrs["initialization"] == "observed_dist"
-                and data.segment.size < 10
-            )
             or data.attrs["len_segs"] != len_segs
             or data.attrs["dt"] != dt
+            or data.segment.size != 1
         ):
             data.close()
             continue
@@ -78,20 +57,21 @@ def collect_files(observe_every: int, len_segs: int, dt: float = 0.01):
         data.close()
 
     if len(joints) > 0:
-        joint_df = pd.concat(joints)
-        return joint_df
+        return pd.concat(joints)
 
     return None
 
 
 if __name__ == "__main__":
 
-    for len_segs in [22, 33, 43, 65, 76, 100]:
-        print(f"len_segs = {len_segs}")
-        joint_df = collect_files(3, len_segs=len_segs)
+    for segment_length in [22, 33, 43, 65, 76, 100]:
+        print(f"len_segs = {segment_length}")
+        joint_df = collect_files(3, len_segs=segment_length)
         if joint_df is not None:
             print(joint_df)
-            joint_df.to_hdf(f"results/initialization_{len_segs}.h5", key="data")
+            joint_df.to_hdf(
+                f"../data/02_analysis/initialization_{segment_length}.h5", key="data"
+            )
 
             fig, ax = plt.subplots()
             sns.histplot(
@@ -103,4 +83,4 @@ if __name__ == "__main__":
                 multiple="stack",
             )
             fig.tight_layout()
-            plt.savefig(f"plots/initialization_{len_segs}.png")
+            plt.savefig(f"../plots/initialization_{segment_length}.png")
