@@ -3,8 +3,8 @@
 *.pyc
 *.out
 *.err
-results/**
 cluster/**
+!cluster/scripts/*
 plots/**
 *.png
 *.pdf
