@@ -29,7 +29,7 @@ def define_system(**kwargs_sys):
         return {}, {}, {}
 
     @jit
-    def eom(y, t, params, iparams, exparams):
+    def eom(y, t, params, iparams, exparams):  # pylint: disable=W0613
         return {
             "state": (jnp.roll(y["state"], -1) - jnp.roll(y["state"], 2))
             * jnp.roll(y["state"], 1)
@@ -38,7 +38,7 @@ def define_system(**kwargs_sys):
         }
 
     @jit
-    def loss(ys, params, iparams, exparams, targets):
+    def loss(ys, params, iparams, exparams, targets):  # pylint: disable=W0613
         x = ys["state"][..., :: kwargs_sys["observe_every"]]
         t_x = targets["state"][..., :: kwargs_sys["observe_every"]]
         return jnp.nanmean((x - t_x) ** 2)
@@ -49,7 +49,7 @@ def define_system(**kwargs_sys):
 def gen_dataset(
     dataset_gt: adoptODE.Framework.dataset_adoptODE,  # type: ignore
     system_kwargs: dict,
-    adoptODE_kwargs: dict,
+    adoptODE_kwargs: dict,  # pylint: ignore=C0103
     params: np.ndarray,
     num_segment: int = 0,
 ):
@@ -106,11 +106,11 @@ def gen_dataset(
 def training_loop(
     dataset_gt,
     system_kwargs: dict,
-    adoptODE_kwargs: dict,
+    adoptODE_kwargs: dict,  # pylint: ignore=C0103
     results_filename: str,
     initialization: str,
 ) -> None:
-    """not really relevant for you, just does the training iteratively for different segments"""
+    """trains iteratively for different segments"""
 
     initialization_key = jax.random.key(system_kwargs["seed_optimization"])
 
@@ -158,6 +158,7 @@ def training_loop(
         )
     else:
         raise ValueError(
+            # pylint: disable=C0301
             f'`initialization` can only be "observed_dist", "quartiles_uniform", "quartiles_observed",  or "uniform-1_4", but is {initialization}'
         )
 
@@ -263,12 +264,12 @@ def training_loop(
             },
         )
         saved_dset = xr.open_dataset(
-            os.path.join("results/", results_filename), engine="h5netcdf"
+            os.path.join("../data/01_simulations/", results_filename), engine="h5netcdf"
         )
         merged_dset = xr.merge([saved_dset, iteration_result])
         saved_dset.close()
         merged_dset.to_netcdf(
-            os.path.join("results/", results_filename), engine="h5netcdf"
+            os.path.join("../data/01_simulations/", results_filename), engine="h5netcdf"
         )
 
 
@@ -308,10 +309,10 @@ if __name__ == "__main__":
 
     kwargs_adoptODE = {
         "lr": 0.05,
-        "epochs": 3000,
+        "epochs": 1500,
         "lr_y0": 0.05,
-        "custom_scheduel_y0": optax.cosine_decay_schedule(  # might be interesting, different lr scheduling (but shouldn't have major impact)
-            0.05, 3000, alpha=1e-3, exponent=1.0
+        "custom_scheduel_y0": optax.cosine_decay_schedule(
+            0.05, 1500, alpha=1e-3, exponent=1.0
         ),
     }
 
@@ -335,6 +336,7 @@ if __name__ == "__main__":
     dataset_ground_truth.t_evals = jnp.arange(
         0, (kwargs_sys["N_time_steps"]) * kwargs_sys["dt"], kwargs_sys["dt"]
     )
+
     # get current date and time in YYYY-MM-DD_HH-MM-SS format
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     reconstruction_attrs = {**kwargs_sys, **kwargs_adoptODE_to_save}
@@ -347,7 +349,7 @@ if __name__ == "__main__":
     savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{seed_system}-{args.initialization}.h5"
     dset.to_netcdf(
         os.path.join(
-            "results/",
+            "../data/01_simulations/",
             savename,
         ),
         engine="h5netcdf",

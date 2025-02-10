@@ -7,4 +7,9 @@ results/**
 cluster/**
 plots/**
 *.png
-.pdf
+*.pdf
+*.eps
+data/**
+notebooks/**
+*.toml
+!Manifest.toml

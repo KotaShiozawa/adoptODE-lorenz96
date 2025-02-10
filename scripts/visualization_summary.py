@@ -130,44 +130,18 @@ def collect_files(observe_every: int, dt: float = 0.0065, N_sys: int=100, len_se
         )
         fits.append(fit_df)
 
-        mse_df["oom"] = np.around(np.log10(mse_df.mse))
+        if np.any(np.isinf(mse_df.mse)):
+            print(f"Found inf values in {file}")
+            continue
 
         if np.any(np.isinf(mse_df.mse)):
             print(f"Found inf values in {file}")
             continue
-        totals.append(mse_df)
 
-        min_ooms = [
-            np.min(mse_df.loc[mse_df.segment == segment].loc[mse_df.type == type].oom)
-            for segment in range(6)
-            for type in ["true", "observed"]
-        ]
-        max_ooms = [
-            np.max(mse_df.loc[mse_df.segment == segment].loc[mse_df.type == type].oom)
-            for segment in range(6)
-            for type in ["true", "observed"]
-        ]
-        joint = pd.concat(
-            [
-                mse_df.loc[mse_df.segment == segment]
-                .loc[mse_df.type == type]
-                .drop(columns="mse")
-                .mode()
-                .dropna()
-                for segment in range(6)
-                for type in ["true", "observed"]
-            ]
-        )
-        joint["min_oom"] = min_ooms
-        joint["max_oom"] = max_ooms
-        joints.append(joint)
+        totals.append(mse_df)
         data.close()
 
-    joint_df = pd.concat(joints)
-    joint_df["oom"] = 10 ** joint_df["oom"]
-    joint_df["min_oom"] = 10 ** joint_df["min_oom"]
-    joint_df["max_oom"] = 10 ** joint_df["max_oom"]
-    return joint_df, pd.concat(totals), pd.concat(fits)
+    return pd.concat(totals), pd.concat(fits)
 
 
 def plot_results():
@@ -275,11 +249,10 @@ def plot_results():
 
 if __name__ == "__main__":
 
-    # for len_segs in [35, 45, 55, 65, 75, 100]:
-    #     print(f'len_segs = {len_segs}')
-    #     mse_df, total_df, fit_df = collect_files(3, dt=0.01, len_segs=len_segs)
-    #     total_df.to_hdf(f"results/total_df3_dt0.01-len_segs{len_segs}.h5", key="data")
-    #     mse_df.to_hdf(f"results/mse_df3_dt0.01-len_segs{len_segs}.h5", key="data")
-    #     fit_df.to_hdf(f"results/fit_df_dt0.01-len_segs{len_segs}.h5", key="data")
+    for len_segs in [35, 45, 55, 65, 75, 100]:
+        print(f'len_segs = {len_segs}')
+        total_df, fit_df = collect_files(3, dt=0.01, len_segs=len_segs)
+        total_df.to_hdf(f"data/02_analysis/total_df3_dt0.01-len_segs{len_segs}.h5", key="data")
+        fit_df.to_hdf(f"data/02_analysis/fit_df_dt0.01-len_segs{len_segs}.h5", key="data")
 
     plot_results()
