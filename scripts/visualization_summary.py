@@ -25,7 +25,7 @@ plt.rcParams.update(
 )
 
 
-def collect_files(observe_every: int):
+def collect_files(observe_every: int, dt: float = 0.0065):
     joints = []
     totals = []
     for file in glob(
@@ -34,6 +34,10 @@ def collect_files(observe_every: int):
 
         print(f"Processing {file}")
         data = xr.open_dataset(file)
+        if data.attrs["dt"] != dt:
+            print(f"Skipping {file} due to wrong dt")
+            data.close()
+            continue
         mse_true = (
             ((data.reconstruction - data.ground_truth) ** 2)
             .mean(dim="time")
@@ -76,16 +80,23 @@ def collect_files(observe_every: int):
 
         mse_df = pd.DataFrame({"mse": mse, "type": true, "segment": segments})
 
+        if np.any(np.isinf(mse_df.mse)):
+            print(f"Found inf values in {file}")
+            continue
+
+        print(mse_df[mse_df.segment == 11].max())
+
         mse_df["oom"] = np.around(np.log10(mse_df.mse))
         totals.append(mse_df)
+        num_segments = data.segment.size
         min_ooms = [
             np.min(mse_df.loc[mse_df.segment == segment].loc[mse_df.type == type].oom)
-            for segment in range(6)
+            for segment in range(num_segments)
             for type in ["true", "observed"]
         ]
         max_ooms = [
             np.max(mse_df.loc[mse_df.segment == segment].loc[mse_df.type == type].oom)
-            for segment in range(6)
+            for segment in range(num_segments)
             for type in ["true", "observed"]
         ]
         joint = pd.concat(
@@ -95,7 +106,7 @@ def collect_files(observe_every: int):
                 .drop(columns="mse")
                 .mode()
                 .dropna()
-                for segment in range(6)
+                for segment in range(num_segments)
                 for type in ["true", "observed"]
             ]
         )
@@ -120,6 +131,8 @@ def plot_results(joint_df, total_df, savename):
 
     ax0, ax1 = axs
 
+    print(total_df[total_df.segment == 11].max())
+
     sns.violinplot(
         ax=ax0,
         data=total_df,
@@ -132,6 +145,9 @@ def plot_results(joint_df, total_df, savename):
         split=True,
         width=1,
         dodge=True,
+        density_norm="width",
+        bw_method="silverman",
+        bw_adjust=0.1,
     )
     ax0.set_xlabel("Consecutive segments")
     ax0.set_ylabel("Mean squared error ")
@@ -188,5 +204,5 @@ if __name__ == "__main__":
     mse_df3, total_df3 = collect_files(3)
     plot_results(joint_df=mse_df3, total_df=total_df3, savename="mse_every3")
 
-    mse_df4, total_df4 = collect_files(4)
-    plot_results(joint_df=mse_df4, total_df=total_df4, savename="mse_every4")
+    # mse_df4, total_df4 = collect_files(4)
+    # plot_results(joint_df=mse_df4, total_df=total_df4, savename="mse_every4")
