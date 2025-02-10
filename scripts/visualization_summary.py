@@ -1,6 +1,6 @@
 from glob import glob
+import git
 
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import colors
 
@@ -10,27 +10,30 @@ import seaborn as sns
 import xarray as xr
 from scipy.optimize import curve_fit
 
+from util import git_dir # 
+
 plt.style.use('paper_2col.mplstyle')
 
-def collect_files(observe_every: int, dt: float = 0.0065, N_sys: int=100, len_segs:int=100):
+def collect_files(
+        observe_every: int,
+        dt: float = 0.0065,
+        N_sys: int=100,
+        len_segs:int=100,
+        initialization: str = "quartiles_uniform",
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
     joints = []
     totals = []
     fits = []
     for file in glob(
-        f"results/202*every{observe_every}*.h5"
+        f"{git_dir()}/data/01_simulations/202*every{observe_every}*.h5"
     ):
-        if "long_term_prediction" in file:
-            continue
         data = xr.open_dataset(file)
         if (
             len(data.data_vars) == 0
             or data.attrs["dt"] != dt
             or data.attrs["N_sys"] != N_sys
-            or len_segs != data.attrs['len_segs']
-            or (
-                "initialization" in data.attrs.keys()
-                and data.attrs["initialization"] != "quartiles_uniform"
-            )
+            or data.attrs['len_segs'] != len_segs
+            or data.attrs["initialization"] != initialization
             ):
             data.close()
             continue
@@ -156,10 +159,10 @@ def plot_results():
     upper_threshold = 1e-3
 
     for i, len_segs in enumerate([35, 45, 55, 65, 75, 100]):
-        total_df = pd.read_hdf(f"results/total_df3_dt0.01-len_segs{len_segs}.h5")
+        total_df = pd.read_hdf(f"{git_dir()}/data/02_analysis/total_df3_dt0.01-len_segs{len_segs}.h5")
         total_df['time'] = total_df['segment'] * len_segs / 100
         success_rates = {middle_threshold: [], upper_threshold: [], lower_threshold: []}
-        print(f'len_segs: {len_segs}')
+
         for segment in total_df['segment'].unique():
             segment_df = total_df[total_df['segment'] == segment]
             denom = len(segment_df)/2
@@ -242,8 +245,8 @@ def plot_results():
     dist_ax.text(-0.15, 1.0, '(b)', transform=dist_ax.transAxes, ha='left', va='bottom')
 
     fig.tight_layout()
-    fig.savefig(f'plots/lorenz96_success_rates.png', dpi=300)
-    fig.savefig(f'plots/lorenz96_success_rates.eps')
+    fig.savefig(f"{git_dir()}/plots/lorenz96_success_rates.png", dpi=300)
+    fig.savefig(f"{git_dir()}/plots/lorenz96_success_rates.eps")
 
 
 
@@ -252,7 +255,7 @@ if __name__ == "__main__":
     for len_segs in [35, 45, 55, 65, 75, 100]:
         print(f'len_segs = {len_segs}')
         total_df, fit_df = collect_files(3, dt=0.01, len_segs=len_segs)
-        total_df.to_hdf(f"data/02_analysis/total_df3_dt0.01-len_segs{len_segs}.h5", key="data")
-        fit_df.to_hdf(f"data/02_analysis/fit_df_dt0.01-len_segs{len_segs}.h5", key="data")
+        total_df.to_hdf(f"{git_dir()}/data/02_analysis/total_df3_dt0.01-len_segs{len_segs}.h5", key="data")
+        fit_df.to_hdf(f"{git_dir()}/data/02_analysis/fit_df_dt0.01-len_segs{len_segs}.h5", key="data")
 
     plot_results()
