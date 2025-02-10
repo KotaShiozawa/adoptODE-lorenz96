@@ -13,3 +13,4 @@ data/**
 notebooks/**
 *.toml
 !Manifest.toml
+.vscode/*
