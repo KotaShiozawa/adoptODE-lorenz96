@@ -49,7 +49,7 @@ def define_system(**kwargs_sys):
 def gen_dataset(
     dataset_gt: adoptODE.Framework.dataset_adoptODE,  # type: ignore
     system_kwargs: dict,
-    adoptODE_kwargs: dict,  # pylint: ignore=C0103
+    adoptODE_kwargs: dict,  # pylint: disable=C0103
     params: np.ndarray,
     num_segment: int = 0,
 ):
@@ -106,7 +106,7 @@ def gen_dataset(
 def training_loop(
     dataset_gt,
     system_kwargs: dict,
-    adoptODE_kwargs: dict,  # pylint: ignore=C0103
+    adoptODE_kwargs: dict,  # pylint: disable=C0103
     results_filename: str,
     initialization: str,
 ) -> None:
