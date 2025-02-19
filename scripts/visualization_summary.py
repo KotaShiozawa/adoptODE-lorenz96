@@ -26,16 +26,13 @@ plt.rcParams.update(
 
 
 def collect_files(observe_every: int, dt: float = 0.0065):
-    joints = []
+
     totals = []
-    for file in glob(
-        f"results/incremental_initial_condition/*every{observe_every}*.h5"
-    ):
+    for file in glob(f"../data/01_simulations/*every{observe_every}*.h5"):
 
         print(f"Processing {file}")
         data = xr.open_dataset(file)
-        if data.attrs["dt"] != dt:
-            print(f"Skipping {file} due to wrong dt")
+        if data.attrs["dt"] != dt or len(data.data_vars) == 0:
             data.close()
             continue
         mse_true = (
@@ -84,42 +81,10 @@ def collect_files(observe_every: int, dt: float = 0.0065):
             print(f"Found inf values in {file}")
             continue
 
-        print(mse_df[mse_df.segment == 11].max())
-
-        mse_df["oom"] = np.around(np.log10(mse_df.mse))
         totals.append(mse_df)
-        num_segments = data.segment.size
-        min_ooms = [
-            np.min(mse_df.loc[mse_df.segment == segment].loc[mse_df.type == type].oom)
-            for segment in range(num_segments)
-            for type in ["true", "observed"]
-        ]
-        max_ooms = [
-            np.max(mse_df.loc[mse_df.segment == segment].loc[mse_df.type == type].oom)
-            for segment in range(num_segments)
-            for type in ["true", "observed"]
-        ]
-        joint = pd.concat(
-            [
-                mse_df.loc[mse_df.segment == segment]
-                .loc[mse_df.type == type]
-                .drop(columns="mse")
-                .mode()
-                .dropna()
-                for segment in range(num_segments)
-                for type in ["true", "observed"]
-            ]
-        )
-        joint["min_oom"] = min_ooms
-        joint["max_oom"] = max_ooms
-        joints.append(joint)
         data.close()
 
-    joint_df = pd.concat(joints)
-    joint_df["oom"] = 10 ** joint_df["oom"]
-    joint_df["min_oom"] = 10 ** joint_df["min_oom"]
-    joint_df["max_oom"] = 10 ** joint_df["max_oom"]
-    return joint_df, pd.concat(totals)
+    return pd.concat(totals)
 
 
 def plot_results(joint_df, total_df, savename):
