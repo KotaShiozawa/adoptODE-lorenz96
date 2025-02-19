@@ -67,6 +67,9 @@ def plot_mse_time_resolved(
     fig.tight_layout()
     fig.savefig(f"{savename}.png", dpi=300)
 
+def plot_mse_violin(e_true: xr.DataArray, e_obs: xr.DataArray, savename: str) -> None:
+    """plots a violin plot of the MSE for each estimated segment"""
+
 
 def calc_mse_true(data: xr.Dataset) -> xr.DataArray:
     return ((data.reconstruction - data.ground_truth) ** 2).mean(dim="variable")

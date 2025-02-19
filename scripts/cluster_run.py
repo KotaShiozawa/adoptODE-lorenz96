@@ -167,8 +167,8 @@ def training_loop(
     )
     max_step = (
         system_kwargs["N_time_steps"]
-        if not system_kwargs["cut_off"]
-        else system_kwargs["len_segs"]
+        if np.isnan(system_kwargs["cut_off"])
+        else system_kwargs["cut_off"]
     )
     num_segments = max_step // system_kwargs["len_segs"]
     for segment in range(num_segments):
@@ -278,16 +278,14 @@ if __name__ == "__main__":
     parser.add_argument("--observe_every", type=int, default=1)
     parser.add_argument("--D", type=int, default=120)
     parser.add_argument("--N_sys", type=int, default=100)
-    parser.add_argument("--seed_system", type=int, default=42)
     parser.add_argument("--N_time_steps", default=600)
     parser.add_argument("--dt", type=float, default=0.0065)
     parser.add_argument("--initialization", type=str, default="observed_dist")
     parser.add_argument("--len_segs", type=int, default=100)
-    parser.add_argument("--cut_off", type=bool, default=False)
+    parser.add_argument("--cut_off", type=int, default=None)
 
     args = parser.parse_args()
-
-    print(f"seed_system = {args.seed_system}")
+    seed_system = np.random.randint(low=0, high=np.iinfo(np.int32).max)
 
     kwargs_sys = {
         "N_sys": args.N_sys,
@@ -298,9 +296,9 @@ if __name__ == "__main__":
         "dt": args.dt,
         "len_segs": args.len_segs,
         "observe_every": args.observe_every,
-        "seed_system": args.seed_system,
+        "seed_system": seed_system,
         "initialization": args.initialization,
-        "cut_off": int(args.cut_off),
+        "cut_off": args.cut_off if args.cut_off is not None else np.nan,
     }
 
     t_evals = jnp.arange(
@@ -348,7 +346,7 @@ if __name__ == "__main__":
             reconstruction_attrs[key] = ["None"]
 
     dset = xr.Dataset(attrs=reconstruction_attrs)
-    savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{args.seed_system}-{args.initialization}.h5"
+    savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{seed_system}-{args.initialization}.h5"
     dset.to_netcdf(
         os.path.join(
             "../data/01_simulations/",
