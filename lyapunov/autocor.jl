@@ -4,14 +4,15 @@ using ProgressMeter
 using HDF5
 
 τs = 1:300
+Δt = 0.01
 Ds = 5:1:120
 
 h5open("../data/02_analysis/autocor_and_mi.h5", "w") do file
-    file["time"] = collect(τs)
+    file["time"] = collect(τs) .* Δt
 end
 
 @showprogress for D in Ds
-    tr, _ = trajectory(PredefinedDynamicalSystems.lorenz96(D; F=8.17), 100; Δt=0.01, Ttr=1000)
+    tr, _ = trajectory(PredefinedDynamicalSystems.lorenz96(D; F=8.17), 100; Δt, Ttr=1000)
     acor_sys = []
     mutualinfo_sys = []
     for var in 1:D

@@ -3,8 +3,8 @@
 *.pyc
 *.out
 *.err
-results/**
 cluster/**
+!cluster/scripts/*
 plots/**
 *.png
 *.pdf
@@ -13,3 +13,4 @@ data/**
 notebooks/**
 *.toml
 !Manifest.toml
+.vscode/*
