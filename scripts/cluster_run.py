@@ -10,6 +10,8 @@ import optax
 import xarray as xr
 from jax import jit
 
+from util import git_dir
+
 import adoptODE
 from adoptODE import dataset_adoptODE, simple_simulation, train_adoptODE
 
@@ -264,12 +266,12 @@ def training_loop(
             },
         )
         saved_dset = xr.open_dataset(
-            os.path.join("../data/01_simulations/", results_filename), engine="h5netcdf"
+            os.path.join(f"{git_dir()}data/01_simulations/", results_filename), engine="h5netcdf"
         )
         merged_dset = xr.merge([saved_dset, iteration_result])
         saved_dset.close()
         merged_dset.to_netcdf(
-            os.path.join("../data/01_simulations/", results_filename), engine="h5netcdf"
+            os.path.join(f"{git_dir()}data/01_simulations/", results_filename), engine="h5netcdf"
         )
 
 
@@ -349,7 +351,7 @@ if __name__ == "__main__":
     savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{seed_system}-{args.initialization}.h5"
     dset.to_netcdf(
         os.path.join(
-            "../data/01_simulations/",
+            f"{git_dir()}/data/01_simulations/",
             savename,
         ),
         engine="h5netcdf",
