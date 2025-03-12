@@ -10,6 +10,8 @@ import optax
 import xarray as xr
 from jax import jit
 
+from util import git_dir
+
 import adoptODE
 from adoptODE import dataset_adoptODE, simple_simulation, train_adoptODE
 
@@ -156,6 +158,36 @@ def training_loop(
                 shape=dataset_gt.y0_train["state"].shape,
             )
         )
+    elif initialization == "observed_and_prior":
+        y_i = dataset_gt.ys["state"][..., :-1]
+        y_i_plus_1 = dataset_gt.ys["state"][..., 1:]
+
+        bins, xedges, yedges = np.histogram2d(
+            y_i.flatten(), y_i_plus_1.flatten(), bins=100
+        )
+        x_centers = (xedges[:-1] + xedges[1:]) / 2
+        y_centers = (yedges[:-1] + yedges[1:]) / 2
+        hist_dataarray = xr.DataArray(
+            bins, coords=[x_centers, y_centers], dims=["y_i", "y_i_plus_1"]
+        )
+        init_params = np.zeros(dataset_gt.y0_train["state"].shape)
+        if system_kwargs["observe_every"] == 3:
+            for i in range(0, init_params.shape[-1] - 1, 3):
+                probs = hist_dataarray.sel(
+                    y_i=dataset_gt.ys["state"][0, 0, i],
+                    method="nearest",
+                ).values
+                init_params[..., i + 1] = np.random.choice(
+                    hist_dataarray.y_i_plus_1.values, p=probs / probs.sum()
+                )
+            for j in range(3, init_params.shape[-1], 3):
+                probs = hist_dataarray.sel(
+                    y_i_plus_1=dataset_gt.ys["state"][0, 0, j],
+                    method="nearest",
+                ).values
+                init_params[..., j - 1] = np.random.choice(
+                    hist_dataarray.y_i.values, p=probs / probs.sum()
+                )
     else:
         raise ValueError(
             # pylint: disable=C0301
@@ -200,6 +232,7 @@ def training_loop(
             adoptODE_kwargs,
             y0=params_final["y0"],
         )
+
         init_params = reconstructed_dataset_sim.ys["state"][:, -1, :]  # type: ignore
         iteration_result = xr.Dataset(
             {
@@ -264,12 +297,14 @@ def training_loop(
             },
         )
         saved_dset = xr.open_dataset(
-            os.path.join("../data/01_simulations/", results_filename), engine="h5netcdf"
+            os.path.join(f"{git_dir()}/data/01_simulations/", results_filename),
+            engine="h5netcdf",
         )
         merged_dset = xr.merge([saved_dset, iteration_result])
         saved_dset.close()
         merged_dset.to_netcdf(
-            os.path.join("../data/01_simulations/", results_filename), engine="h5netcdf"
+            os.path.join(f"{git_dir()}/data/01_simulations/", results_filename),
+            engine="h5netcdf",
         )
 
 
@@ -349,7 +384,7 @@ if __name__ == "__main__":
     savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{seed_system}-{args.initialization}.h5"
     dset.to_netcdf(
         os.path.join(
-            "../data/01_simulations/",
+            f"{git_dir()}/data/01_simulations/",
             savename,
         ),
         engine="h5netcdf",
