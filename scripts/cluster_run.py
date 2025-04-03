@@ -159,12 +159,14 @@ def training_loop(
             )
         )
     elif initialization == "observed_and_prior":
+        quartiles = np.nanquantile(all_values, [0.25, 0.75])
         y_i = dataset_gt.ys["state"][..., :-1]
         y_i_plus_1 = dataset_gt.ys["state"][..., 1:]
 
         bins, xedges, yedges = np.histogram2d(
             y_i.flatten(), y_i_plus_1.flatten(), bins=100
         )
+
         x_centers = (xedges[:-1] + xedges[1:]) / 2
         y_centers = (yedges[:-1] + yedges[1:]) / 2
         hist_dataarray = xr.DataArray(
@@ -177,16 +179,28 @@ def training_loop(
                     y_i=dataset_gt.ys["state"][0, 0, i],
                     method="nearest",
                 ).values
-                init_params[..., i + 1] = np.random.choice(
-                    hist_dataarray.y_i_plus_1.values, p=probs / probs.sum()
+                not_in_quartiles = np.logical_or(hist_dataarray.y_i_plus_1.values < quartiles[0], hist_dataarray.y_i_plus_1.values > quartiles[1])
+                probs[not_in_quartiles] = 0
+                probs = probs / probs.sum()
+                init_params[..., i + 1] = jax.random.choice(
+                    initialization_key, 
+                    hist_dataarray.y_i_plus_1.values, 
+                    p=probs, 
+                    shape=(system_kwargs["N_sys"], )
                 )
             for j in range(3, init_params.shape[-1], 3):
                 probs = hist_dataarray.sel(
                     y_i_plus_1=dataset_gt.ys["state"][0, 0, j],
                     method="nearest",
                 ).values
-                init_params[..., j - 1] = np.random.choice(
-                    hist_dataarray.y_i.values, p=probs / probs.sum()
+                not_in_quartiles = np.logical_or(hist_dataarray.y_i_plus_1.values < quartiles[0], hist_dataarray.y_i_plus_1.values > quartiles[1])
+                probs[not_in_quartiles] = 0
+                probs = probs / probs.sum()
+                init_params[..., j - 1] = jax.random.choice(
+                    initialization_key,
+                    hist_dataarray.y_i.values, 
+                    p=probs, 
+                    shape=(system_kwargs["N_sys"], )
                 )
     else:
         raise ValueError(
