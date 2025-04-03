@@ -67,7 +67,7 @@ def gen_dataset(
         num_segment * len_segs : (num_segment + 1) * len_segs,
         :: system_kwargs["observe_every"],
     ] = 1
-    mask_y0 = mask[:, 0, :]
+    mask_y0 = mask[:, num_segment * len_segs, :]
     mask_ys = np.zeros((n_sys, len_segs, D), dtype=bool)
     mask_ys[:, :, :: system_kwargs["observe_every"]] = 1
 
@@ -94,6 +94,16 @@ def gen_dataset(
     # THIS is relevant for you
     adoptODE_kwargs["lower_b_y0"] = {"state": y0_lower_bound}
     adoptODE_kwargs["upper_b_y0"] = {"state": y0_upper_bound}
+    print("y0_lower_bound", y0_lower_bound)
+    print("y0_upper_bound", y0_upper_bound)
+    print("y0_train", y0_train["state"])
+    print("mask_y0", mask_y0)
+    print("mask_y0.shape", mask_y0.shape)
+    print("y0_train[state][mask_y0]", y0_train["state"][mask_y0])
+    print(
+        "dataset_gt[mask_y0]",
+        dataset_gt.ys["state"][:, num_segment * len_segs, :][mask_y0],
+    )
 
     return dataset_adoptODE(
         define_system,
@@ -166,7 +176,6 @@ def training_loop(
         bins, xedges, yedges = np.histogram2d(
             y_i.flatten(), y_i_plus_1.flatten(), bins=100
         )
-
         x_centers = (xedges[:-1] + xedges[1:]) / 2
         y_centers = (yedges[:-1] + yedges[1:]) / 2
         hist_dataarray = xr.DataArray(
