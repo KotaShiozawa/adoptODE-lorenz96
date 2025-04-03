@@ -67,7 +67,7 @@ def gen_dataset(
         num_segment * len_segs : (num_segment + 1) * len_segs,
         :: system_kwargs["observe_every"],
     ] = 1
-    mask_y0 = mask[:, 0, :]
+    mask_y0 = mask[:, num_segment * len_segs, :]
     mask_ys = np.zeros((n_sys, len_segs, D), dtype=bool)
     mask_ys[:, :, :: system_kwargs["observe_every"]] = 1
 
@@ -94,6 +94,16 @@ def gen_dataset(
     # THIS is relevant for you
     adoptODE_kwargs["lower_b_y0"] = {"state": y0_lower_bound}
     adoptODE_kwargs["upper_b_y0"] = {"state": y0_upper_bound}
+    print("y0_lower_bound", y0_lower_bound)
+    print("y0_upper_bound", y0_upper_bound)
+    print("y0_train", y0_train["state"])
+    print("mask_y0", mask_y0)
+    print("mask_y0.shape", mask_y0.shape)
+    print("y0_train[state][mask_y0]", y0_train["state"][mask_y0])
+    print(
+        "dataset_gt[mask_y0]",
+        dataset_gt.ys["state"][:, num_segment * len_segs, :][mask_y0],
+    )
 
     return dataset_adoptODE(
         define_system,
@@ -165,29 +175,15 @@ def training_loop(
         bins, xedges, yedges = np.histogram2d(
             y_i.flatten(), y_i_plus_1.flatten(), bins=100
         )
+        bins[bins < 100] = 0
         x_centers = (xedges[:-1] + xedges[1:]) / 2
         y_centers = (yedges[:-1] + yedges[1:]) / 2
         hist_dataarray = xr.DataArray(
             bins, coords=[x_centers, y_centers], dims=["y_i", "y_i_plus_1"]
         )
         init_params = np.zeros(dataset_gt.y0_train["state"].shape)
-        if system_kwargs["observe_every"] == 3:
-            for i in range(0, init_params.shape[-1] - 1, 3):
-                probs = hist_dataarray.sel(
-                    y_i=dataset_gt.ys["state"][0, 0, i],
-                    method="nearest",
-                ).values
-                init_params[..., i + 1] = np.random.choice(
-                    hist_dataarray.y_i_plus_1.values, p=probs / probs.sum()
-                )
-            for j in range(3, init_params.shape[-1], 3):
-                probs = hist_dataarray.sel(
-                    y_i_plus_1=dataset_gt.ys["state"][0, 0, j],
-                    method="nearest",
-                ).values
-                init_params[..., j - 1] = np.random.choice(
-                    hist_dataarray.y_i.values, p=probs / probs.sum()
-                )
+        init_params[:, 1::3] = dataset_gt.ys["state"][:, 0, 0::3]
+        init_params[:, 2:-1:3] = dataset_gt.ys["state"][:, 0, 3::3]
     else:
         raise ValueError(
             # pylint: disable=C0301
