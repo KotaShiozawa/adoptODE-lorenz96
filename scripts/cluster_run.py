@@ -404,7 +404,7 @@ if __name__ == "__main__":
             reconstruction_attrs[key] = ["None"]
 
     dset = xr.Dataset(attrs=reconstruction_attrs)
-    savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{seed_system}-{args.initialization}.h5"
+    savename = f"{timestamp}-D{args.D}-observe_every{args.observe_every}-seed_system{seed_system}-{args.initialization}_restrict_to_hyperplanes.h5"
     dset.to_netcdf(
         os.path.join(
             f"{git_dir()}/data/01_simulations/",
