@@ -9,7 +9,7 @@ import xarray as xr
 
 from util import git_dir
 
-plt.style.use('paper_2col.mplstyle')
+plt.style.use(f'{git_dir()}/scripts/paper_2col.mplstyle')
 
 
 def collect_files(observe_every: int, len_segs: int, dt: float=0.01):
@@ -29,24 +29,30 @@ def collect_files(observe_every: int, len_segs: int, dt: float=0.01):
             continue
         print(f"Processing {file}")
 
-        mse_true = (
-            ((data.reconstruction.isel(segment=0, n_sys=slice(0, 100)) - data.ground_truth.isel(segment=0)) ** 2)
-            .mean(dim="variable")
+        e_true = (
+            (
+                (
+                    data.reconstruction.isel(segment=0, n_sys=slice(0, 100))
+                    - data.ground_truth.isel(segment=0)
+                ) ** 2
+            ).mean(dim="variable")
         )
-        mse_obs = (
-            ((data.reconstruction.isel(segment=0, n_sys=slice(0, 100)) - data.ground_truth.isel(segment=0)) ** 2)
-            .isel(variable=slice(0, -1, observe_every))
-            .mean(dim="variable")
+        e_obs = (
+            (
+                (
+                    data.reconstruction.isel(segment=0, n_sys=slice(0, 100), variable=slice(0, -1, observe_every)) 
+                    - data.ground_truth.isel(segment=0, variable=slice(0, -1, observe_every))
+                ) ** 2
+            ).mean(dim="variable")
         )
-        mse_true_ta = mse_true.mean(dim="time")
-        mse_obs_ta = mse_obs.mean(dim="time")
-
+        e_true_ta = e_true.mean(dim="time")
+        e_obs_ta = e_obs.mean(dim="time")
 
         joint = pd.DataFrame(
             {
                 "seed_system": [data.attrs["seed_system"]] * 100,
-                "mse_true": mse_true_ta.values.flatten(),
-                "mse_obs": mse_obs_ta.values.flatten(),
+                "e_true": e_true_ta.values.flatten(),
+                "e_obs": e_obs_ta.values.flatten(),
                 "initialization": [data.attrs["initialization"]]* 100,
             }
         )
@@ -69,25 +75,22 @@ LABELS = {
 
 if __name__ == "__main__":
 
-    for len_segs in [45]:
-        print(f'len_segs = {len_segs}')
-        joint_df = collect_files(3, len_segs=len_segs)
-        if joint_df is not None:
-            print(joint_df)
-            joint_df.to_hdf(f"{git_dir()}/data/02_analysis/initialization_{len_segs}.h5", key="data")
-            for label in np.unique(joint_df.initialization):
-                joint_df.loc[joint_df.initialization == label, "initialization"] = LABELS[label]
-            print(joint_df)
-            fig, ax = plt.subplots()
-            sns.histplot(
-                joint_df,
-                x="mse_true",
-                hue="initialization",
-                log_scale=True,
-                stat="density",
-                element="step",
-            )
-            # ax.set_yscale('log')
-            ax.set_xlabel(r'$E_{\mathrm{True}}$')
-            fig.tight_layout()
-            plt.savefig(f'{git_dir}/plots/initialization_{len_segs}.png', dpi=300)
+    len_segs = 45 # autocorellation zero-crossing
+    joint_df = collect_files(3, len_segs=len_segs)
+    if joint_df is not None:
+        joint_df.to_hdf(f"{git_dir()}/data/02_analysis/initialization_{len_segs}.h5", key="data")
+        for label in np.unique(joint_df.initialization):
+            joint_df.loc[joint_df.initialization == label, "initialization"] = LABELS[label]
+        fig, ax = plt.subplots()
+        sns.histplot(
+            joint_df,
+            x="e_true",
+            hue="initialization",
+            log_scale=True,
+            stat="density",
+            element="step",
+        )
+        ax.set_ylabel('density')
+        ax.set_xlabel(r'$E_{\mathrm{true}}$')
+        fig.tight_layout()
+        plt.savefig(f'{git_dir()}/plots/initialization_{len_segs}.png', dpi=600)
