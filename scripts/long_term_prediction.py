@@ -7,9 +7,9 @@ from datetime import datetime
 import jax
 import jax.numpy as jnp
 import numpy as np
-import optax
 import xarray as xr
 from jax import jit
+from util import git_dir
 
 from adoptODE import simple_simulation
 
@@ -56,27 +56,29 @@ def prediction_loop(
     for file in glob(load_regex):
 
         dataset = xr.open_dataset(file)
-        if "initialization" in dataset.attrs.keys():
-            continue
         if dataset.attrs["N_sys"] != 100: 
             continue
         if dataset.attrs["dt"] != system_kwargs["dt"]:
+            continue
+        if dataset.attrs["len_segs"] != system_kwargs["len_segs"]:
+            continue
+        if dataset.time.size < 200:
             continue
 
         print(f'processing file {file}')
 
         seed_system = dataset.attrs["seed_system"]
+        len_segments = dataset.attrs["len_segs"]
 
         last_ic = dataset.reconstruction.isel(
-            segment=-1, seed_system=0, time=(dataset.segment.size - 1) * 100
+            segment=-1, seed_system=0, time=(dataset.segment.size - 1) * len_segments
         )
 
+        system_kwargs["N_sys"] = 100
         prediction = simple_simulation(
             define_system,
             np.arange(
-                dataset.time[(dataset.segment.size - 1) * 100],
-                dataset.time[(dataset.segment.size - 1) * 100] + 6.5,
-                step=dataset.attrs["dt"],
+                0, 10, step=dataset.attrs["dt"],
             ),
             system_kwargs,
             adoptODE_kwargs,
@@ -84,30 +86,30 @@ def prediction_loop(
         )
 
         last_ic_true = dataset.ground_truth.isel(
-            segment=-1, seed_system=0, time=(dataset.segment.size - 1) * 100
+            segment=-1, seed_system=0, time=(dataset.segment.size - 1) * len_segments
         )
+        system_kwargs["N_sys"] = 1
         truth = simple_simulation(
             define_system,
             np.arange(
-                dataset.time[(dataset.segment.size - 1) * 100],
-                dataset.time[(dataset.segment.size - 1) * 100] + 6.5,
-                step=dataset.attrs["dt"],
+                0, 10, step=dataset.attrs["dt"],
             ),
             system_kwargs,
             adoptODE_kwargs,
-            y0={"state": last_ic_true.values},
+            y0={"state": last_ic_true.values.reshape(1, -1)},
         )
         dataset.close()
+
+        print(f'truth.shape = {truth.ys["state"].shape}')
+        print(f'prediction.shape = {prediction.ys["state"].shape}')
         iteration_result = xr.Dataset(
             {
                 "ground_truth": xr.DataArray(
                     truth.ys["state"][
-                        jnp.newaxis,
-                        ...,
+                        np.newaxis, 0, ...,
                     ],
-                    dims=["seed_system", "n_sys", "time", "variable"],
+                    dims=["seed_system", "time", "variable"],
                     coords={
-                        "n_sys": np.arange(0, system_kwargs["N_sys"]),
                         "time": truth.t_evals,
                         "variable": np.arange(1, system_kwargs["D"] + 1),
                         "seed_system": [seed_system],
@@ -117,7 +119,7 @@ def prediction_loop(
                     prediction.ys["state"][jnp.newaxis, ...],  # type: ignore
                     dims=["seed_system", "n_sys", "time", "variable"],
                     coords={
-                        "n_sys": np.arange(0, system_kwargs["N_sys"]),
+                        "n_sys": np.arange(0, 100),
                         "time": prediction.t_evals,
                         "variable": np.arange(1, system_kwargs["D"] + 1),
                         "seed_system": [seed_system],
@@ -126,12 +128,12 @@ def prediction_loop(
             },
         )
         saved_dset = xr.open_dataset(
-            os.path.join("results/", results_filename), engine="h5netcdf"
+            os.path.join(f"{git_dir()}/data/01_simulations/", results_filename), engine="h5netcdf"
         )
         merged_dset = xr.merge([saved_dset, iteration_result])
         saved_dset.close()
         merged_dset.to_netcdf(
-            os.path.join("results/", results_filename), engine="h5netcdf"
+            os.path.join(f"{git_dir()}/data/01_simulations/", results_filename), engine="h5netcdf"
         )
 
 
@@ -140,9 +142,9 @@ if __name__ == "__main__":
     parser.add_argument("--observe_every", type=int, default=1)
     parser.add_argument("--D", type=int, default=120)
     parser.add_argument("--N_sys", type=int, default=100)
-    parser.add_argument("--N_time_steps", default=600)
     parser.add_argument("--dt", type=float, default=0.0065)
     parser.add_argument("--initialization", type=str, default="observed_dist")
+    parser.add_argument("--len_segs", type=int, default=100)
 
     args = parser.parse_args()
 
@@ -150,10 +152,8 @@ if __name__ == "__main__":
         "N_sys": args.N_sys,
         "D": args.D,
         "p": 8.17,
-        "trans_steps": 10000,
-        "N_time_steps": int(args.N_time_steps),
         "dt": args.dt,
-        "len_segs": 100,
+        "len_segs": args.len_segs,
         "observe_every": args.observe_every,
     }
 
@@ -170,13 +170,13 @@ if __name__ == "__main__":
     reconstruction_attrs = {**kwargs_sys, **kwargs_adoptODE_to_save}
 
     dset = xr.Dataset(attrs=reconstruction_attrs)
-    savename = f"{timestamp}-long_term_prediction_D{args.D}-observe_every{args.observe_every}.h5"
+    savename = f"{timestamp}-long_term_prediction_D{args.D}-observe_every{args.observe_every}-len_segs{args.len_segs}-{args.initialization}.h5"
     load_regex = (
-        f"results/*-D{args.D}-observe_every{args.observe_every}-seed_system*.h5"
+        f"{git_dir()}/data/01_simulations/*-D{args.D}-observe_every{args.observe_every}*-{args.initialization}.h5"
     )
     dset.to_netcdf(
         os.path.join(
-            "results/",
+            f"{git_dir()}/data/01_simulations/",
             savename,
         ),
         engine="h5netcdf",
