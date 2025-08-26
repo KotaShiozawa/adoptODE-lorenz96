@@ -94,16 +94,6 @@ def gen_dataset(
     # THIS is relevant for you
     adoptODE_kwargs["lower_b_y0"] = {"state": y0_lower_bound}
     adoptODE_kwargs["upper_b_y0"] = {"state": y0_upper_bound}
-    print("y0_lower_bound", y0_lower_bound)
-    print("y0_upper_bound", y0_upper_bound)
-    print("y0_train", y0_train["state"])
-    print("mask_y0", mask_y0)
-    print("mask_y0.shape", mask_y0.shape)
-    print("y0_train[state][mask_y0]", y0_train["state"][mask_y0])
-    print(
-        "dataset_gt[mask_y0]",
-        dataset_gt.ys["state"][:, num_segment * len_segs, :][mask_y0],
-    )
 
     return dataset_adoptODE(
         define_system,
@@ -192,9 +182,9 @@ def training_loop(
                 probs[not_in_quartiles] = 0
                 probs = probs / probs.sum()
                 init_params[..., i + 1] = jax.random.choice(
-                    initialization_key, 
-                    hist_dataarray.y_i_plus_1.values, 
-                    p=probs, 
+                    initialization_key,
+                    hist_dataarray.y_i_plus_1.values,
+                    p=probs,
                     shape=(system_kwargs["N_sys"], )
                 )
             for j in range(3, init_params.shape[-1], 3):
@@ -207,8 +197,8 @@ def training_loop(
                 probs = probs / probs.sum()
                 init_params[..., j - 1] = jax.random.choice(
                     initialization_key,
-                    hist_dataarray.y_i.values, 
-                    p=probs, 
+                    hist_dataarray.y_i.values,
+                    p=probs,
                     shape=(system_kwargs["N_sys"], )
                 )
     else:
