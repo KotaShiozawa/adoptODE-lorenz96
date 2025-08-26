@@ -1,18 +1,20 @@
 """plots lyapunov exponents, Kaplan-Yorke dimension, autocorrelation and mutual information"""
 
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import numpy as np
 import h5py
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.gridspec import GridSpec
 from scipy.signal import find_peaks
+from util import git_dir
 
-plt.style.use("../paper_2col.mplstyle")
+plt.style.use(f"{git_dir()}/scripts/paper_2col.mplstyle")
 
 
 def lyapunov_plot():
     lyapunov_data = {}
 
-    with h5py.File("../data/02_analysis/lyapunovs.h5") as f:
+    with h5py.File(f"{git_dir()}/data/02_analysis/lyapunovs.h5") as f:
         for dimension in f.keys():  # pylint: disable=C0206
             lyapunov_data[int(dimension)] = {}
             lyapunov_data[int(dimension)]["spectrum"] = np.array(
@@ -55,15 +57,15 @@ def lyapunov_plot():
     ax1.set_xticks([0, 10, 20, 30, 40, 50, 60, 80, 100, 120])
 
     plt.tight_layout()
-    plt.savefig("lyapunov_time_and_ky_dim.eps", dpi=300)
-    fig.savefig("lyapunov_time_and_ky_dim.png", dpi=300)
+    plt.savefig(f"{git_dir()}/plots/lyapunov_time_and_ky_dim.eps", dpi=300)
+    fig.savefig(f"{git_dir()}/plots/lyapunov_time_and_ky_dim.png", dpi=300)
 
 
 def autocorrelation_plot():
     autocorrelation_data = {}
     mutualinformation_data = {}
 
-    with h5py.File("../data/02_analysis/autocor_and_mi.h5", "r") as f:
+    with h5py.File(f"{git_dir()}/data/02_analysis/autocor_and_mi.h5", "r") as f:
         for dimension in f.keys():  # pylint: disable=C0206
             if dimension == "time":
                 continue
@@ -94,105 +96,118 @@ def autocorrelation_plot():
     # Map the dimension values to colors
     colors = cmap(norm(dimension))
 
-    fig, axs = plt.subplots(nrows=2, figsize=(3.416, 3.416 * 0.8))
+    fig = plt.figure(figsize=(3.416, 3.416))
+    gs = GridSpec(nrows=11, ncols=8)
 
-    for dimension, autocor in autocorrelation_data.items():
-        axs[0].plot(
-            taus * 0.01,
-            autocor["mean"],
-            color=colors[dimension - 5],
-            zorder=dimension,
-        )
-        axs[0].fill_between(
-            taus * 0.01,
-            autocor["mean"] - autocor["std"],
-            autocor["mean"] + autocor["std"],
-            alpha=0.5,
-            color=colors[dimension - 5],
-            zorder=dimension,
-        )
-        first_zero_crossing = np.where(autocor["mean"] < 0)[0][0]
-        axs[1].scatter(
-            dimension,
-            taus[first_zero_crossing] * 0.01,
-            color="tab:blue",
-            s=8,
-            marker="o",
-            label="first zero-crossing" if dimension == dimension[0] else None,
-        )
-        first_minimum = find_peaks(-autocor["mean"])[0][0]
-        axs[1].scatter(
-            dimension,
-            taus[first_minimum] * 0.01,
-            color="tab:red",
-            s=8,
-            marker="d",
-            label="first minimum" if dimension == dimension[0] else None,
-        )
+    ax1 = fig.add_subplot(gs[0:3, 1:-1])
+    ax2 = fig.add_subplot(gs[3:6, 1:-1])
+    colorbar_ax = fig.add_subplot(gs[:6, -1])
+    colorbar_ax.axis("off")
+    legend_ax = fig.add_subplot(gs[6:7, :])
+    zerocrossing_ax = fig.add_subplot(gs[8:10, 1:])
 
-    axs[0].set_xlabel(r"delay $\tau$")
-    axs[0].set_ylabel(r"$C(y(t), y(t-\tau))$")
-    axs[1].set_xlabel(r"dimension $D$")
-    axs[1].set_ylabel(r"$\tau$")
-
-    # Add a colorbar to the right of the top axis
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=axs[0], orientation="vertical", aspect=10)
-    cbar.set_label(r"$D$")
-
-    # Add labels (a) and (b) to the top left of the subplots
-    axs[0].text(
-        -0.32,
-        1.1,
-        "(a)",
-        transform=axs[0].transAxes,
-        fontsize=12,
-        verticalalignment="top",
-    )
-    axs[1].text(
-        -0.27,
-        1.1,
-        "(b)",
-        transform=axs[1].transAxes,
-        fontsize=12,
-        verticalalignment="top",
-    )
-
-    axs[1].legend(loc="center", ncols=2, bbox_to_anchor=(0.5, 1.25))
-
-    plt.subplots_adjust(hspace=1.1)
-    fig.savefig("../plots/autocorrelation.eps", dpi=300)
-    fig.savefig("../plots/autocorrelation.png", dpi=300)
-
-    fig, ax = plt.subplots()
-
-    for dimension, mutualinfo in mutualinformation_data.items():
-        ax.plot(
+    for (dim_acor, autocor), (dim_mi, mutualinfo) in zip(
+        autocorrelation_data.items(), mutualinformation_data.items()
+    ):
+        ax1.plot(
             taus * 0.01,
             mutualinfo["mean"],
-            color=colors[dimension - 5],
-            zorder=dimension,
+            color=colors[dim_mi - 5],
+            zorder=dim_mi,
         )
-        ax.fill_between(
+        ax1.fill_between(
             taus * 0.01,
             mutualinfo["mean"] - mutualinfo["std"],
             mutualinfo["mean"] + mutualinfo["std"],
             alpha=0.5,
-            color=colors[dimension - 5],
-            zorder=dimension,
+            color=colors[dim_mi - 5],
+            zorder=dim_mi,
+        )
+        ax2.plot(
+            taus * 0.01,
+            autocor["mean"],
+            color=colors[dim_acor - 5],
+            zorder=dim_acor,
+        )
+        ax2.fill_between(
+            taus * 0.01,
+            autocor["mean"] - autocor["std"],
+            autocor["mean"] + autocor["std"],
+            alpha=0.5,
+            color=colors[dim_acor - 5],
+            zorder=dim_acor,
+        )
+        first_zero_crossing = np.where(autocor["mean"] < 0)[0][0]
+        zerocrossing_ax.scatter(
+            dim_acor,
+            taus[first_zero_crossing] * 0.01,
+            color="tab:blue",
+            s=8,
+            marker="o",
+            label="first zero-crossing" if dim_acor == dimension[0] else None,
+        )
+        first_minimum = find_peaks(-autocor["mean"])[0][0]
+        zerocrossing_ax.scatter(
+            dim_acor,
+            taus[first_minimum] * 0.01,
+            color="tab:red",
+            s=8,
+            marker="d",
+            label="first minimum" if dim_acor == dimension[0] else None,
         )
 
-    ax.set_xlabel(r"delay $\tau$")
-    ax.set_ylabel(r"$I(y(t), y(t-\tau))$")
+    # axs[0].sharex(axs[1])
+    ax1.set_xticklabels([])
+    ax2.set_xlabel(r"delay $\tau$")
+    ax1.set_ylabel(r"$I(y(t), y(t-\tau))$")
+    ax2.set_ylabel(r"$C(y(t), y(t-\tau))$")
+    zerocrossing_ax.set_xlabel(r"dimension $D$")
+    zerocrossing_ax.set_ylabel(r"$\tau$")
+
     # Add a colorbar to the right of the top axis
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax, orientation="horizontal", aspect=30, pad=0.3)
+    cbar = fig.colorbar(
+        sm,
+        ax=colorbar_ax,
+        orientation="vertical",
+        aspect=20,
+        fraction=0.5,
+        anchor=(-1, 0.5),
+    )
     cbar.set_label(r"$D$")
-    fig.tight_layout()
-    fig.savefig("../plots/mutualinformation.eps", dpi=300)
-    fig.savefig("../plots/mutualinformation.png", dpi=300)
+
+    # Add labels (a) and (b) to the top left of the subplots
+    ax1.text(
+        -0.32,
+        1.1,
+        "(a)",
+        transform=ax1.transAxes,
+        fontsize=12,
+        verticalalignment="top",
+    )
+    ax2.text(
+        -0.32,
+        1.1,
+        "(b)",
+        transform=ax2.transAxes,
+        fontsize=12,
+        verticalalignment="top",
+    )
+    zerocrossing_ax.text(
+        -0.27,
+        1.1,
+        "(c)",
+        transform=zerocrossing_ax.transAxes,
+        fontsize=12,
+        verticalalignment="top",
+    )
+    handles, labels = zerocrossing_ax.get_legend_handles_labels()
+    legend_ax.legend(handles, labels, loc="center", ncols=2, bbox_to_anchor=[0.5, -2])
+    legend_ax.axis("off")
+    plt.subplots_adjust(hspace=1.2, top=0.95, bottom=0.05)
+    fig.savefig(f"{git_dir()}/plots/autocorrelation_and_mi.eps", dpi=600)
+    fig.savefig(f"{git_dir()}/plots/autocorrelation_and_mi.png", dpi=600)
 
 
 if __name__ == "__main__":
