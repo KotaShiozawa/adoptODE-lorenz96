@@ -3,4 +3,14 @@
 *.pyc
 *.out
 *.err
-results/**
+cluster/**
+!cluster/scripts/*
+plots/**
+*.png
+*.pdf
+*.eps
+data/**
+notebooks/**
+*.toml
+!Manifest.toml
+.vscode/*

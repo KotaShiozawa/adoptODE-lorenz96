@@ -1,0 +1,13 @@
+mathtext.fontset : stix
+font.family : STIXGeneral
+font.size : 9
+axes.titlesize : 9
+axes.labelsize : 9
+xtick.labelsize : 9
+ytick.labelsize : 9
+legend.fontsize : 9
+figure.titlesize : 9
+
+figure.figsize : 3.416, 2.112 # golden ratio with with = \columnwidth of revtex 4.2 (246pt = 246/72 inches)
+axes.linewidth : 0.5
+lines.linewidth : 1
